@@ -51,7 +51,9 @@ class RuleFinding:
 @dataclass
 class DecisionResult:
     decision: str                    # Likely Valid | Likely Invalid | Manual Review Required
-    consistency: str                 # Consistent | Partially Consistent | Inconsistent
+    # Strong Match | Acceptable Match | Weak Match | Model Disagreement
+    # | Uncertain Result  (SRS xxiv)
+    consistency: str
     confidence_gap: float
     findings: list[RuleFinding] = field(default_factory=list)
     reasons: list[str] = field(default_factory=list)
