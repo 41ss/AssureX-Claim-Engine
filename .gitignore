@@ -5,8 +5,7 @@ venv/
 .pytest_cache/
 assurex.db
 uploads/
-data/cards/*
-!data/cards/.gitkeep
+
 .env
 .vscode/
 .idea/

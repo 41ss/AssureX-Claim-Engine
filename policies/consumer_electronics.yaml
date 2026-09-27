@@ -1,0 +1,40 @@
+# Warranty policy: TVs, laptops, audio and computing. Owner: Keagan.
+# Every field below is required by SRS 1.10.7.
+product_category: consumer_electronics
+examples: [television, laptop, monitor, speaker, printer]
+
+coverage_duration_months: 12
+warranty_start: purchase_date
+grace_period_days: 14
+claim_reporting_period_days: 30
+
+covered_faults: [display, power_supply, motherboard, battery, ports, manufacturing_defect]
+exclusions: [physical_damage, water_damage, screen_burn_in, software_issue, misuse, cosmetic_wear]
+
+repair_conditions:
+  max_covered_repairs: 3
+  unauthorized_repair_voids_warranty: true
+authorized_service_centre_required: true
+replacement_conditions:
+  replace_after_failed_repairs: 3
+  replacement_restarts_warranty: false
+  max_replacements: 1
+
+mandatory_documents: [receipt, serial_photo, fault_evidence]
+optional_documents: [warranty_card, product_image, diagnostic_report, repair_report]
+
+hard_fail_rules:
+  - warranty_expired_beyond_grace
+  - excluded_damage
+  - unauthorized_repair
+  - max_replacements_exceeded
+warning_rules:
+  - within_grace_period
+  - reported_after_reporting_period
+  - previous_repairs_present
+manual_review_rules:
+  - serial_number_mismatch
+  - missing_mandatory_document
+  - contradiction_detected
+  - duplicate_claim_or_document
+  - fault_not_in_covered_list
