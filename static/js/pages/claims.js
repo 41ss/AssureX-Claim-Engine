@@ -49,6 +49,27 @@ const FILTER_CONFIG = [
       { value: "expired", label: "Expired" },
     ],
   },
+  {
+    key: "confidenceRange",
+    label: "Confidence",
+    options: [
+      { value: "all", label: "Any Confidence" },
+      { value: "high", label: "High (80%+)" },
+      { value: "medium", label: "Medium (60–79%)" },
+      { value: "low", label: "Low (below 60%)" },
+    ],
+  },
+  {
+    key: "consistency",
+    label: "Model Result",
+    options: [
+      { value: "all", label: "All Model Results" },
+      { value: "Strong Match", label: "Strong Match" },
+      { value: "Acceptable Match", label: "Acceptable Match" },
+      { value: "Weak Match", label: "Weak Match" },
+      { value: "Model Disagreement", label: "Model Disagreement" },
+    ],
+  },
 ];
 
 const PAGE_SIZE = 6;
@@ -73,9 +94,11 @@ export async function renderClaimsPage(container) {
     <div class="filter-bar">
       <div class="filter-bar__search search-input">
         ${icon("search", { size: 16 })}
-        <input type="text" id="claims-search" value="${initialSearch.replace(/"/g, "&quot;")}" placeholder="Search by Claim ID, product or fault type...">
+        <input type="text" id="claims-search" value="${initialSearch.replace(/"/g, "&quot;")}" placeholder="Search Claim ID, product, serial or fault...">
       </div>
       <div id="filter-controls" style="display:flex;gap:var(--space-3);flex-wrap:wrap"></div>
+      <div class="date-filter"><label for="submitted-from">From</label><input class="input" type="date" id="submitted-from"></div>
+      <div class="date-filter"><label for="submitted-to">To</label><input class="input" type="date" id="submitted-to"></div>
       <button class="btn btn-ghost btn-sm" id="clear-filters">${icon("x-circle", { size: 14 })}Clear</button>
     </div>
 
@@ -108,6 +131,11 @@ export async function renderClaimsPage(container) {
     currentPage = 1;
     loadClaims();
   });
+  ["submitted-from", "submitted-to"].forEach((id) => document.getElementById(id).addEventListener("change", (event) => {
+    state.filters[id === "submitted-from" ? "submittedFrom" : "submittedTo"] = event.target.value;
+    currentPage = 1;
+    loadClaims();
+  }));
 
   loadClaims();
 }

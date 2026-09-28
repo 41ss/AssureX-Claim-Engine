@@ -1218,6 +1218,8 @@ p { line-height: var(--lh-normal); color: var(--text-secondary); }
   margin-bottom: var(--space-5);
 }
 .filter-bar__search { flex: 1; min-width: 220px; }
+.date-filter { display: flex; align-items: center; gap: var(--space-2); color: var(--text-muted); font-size: var(--fs-2xs); }
+.date-filter .input { width: 140px; padding: 8px 10px; font-size: var(--fs-xs); }
 
 /* ---------- File upload ---------- */
 .uploader {
@@ -1260,6 +1262,13 @@ p { line-height: var(--lh-normal); color: var(--text-secondary); }
 .doc-card__meta { font-size: var(--fs-2xs); color: var(--text-muted); margin-top: 2px; }
 .doc-card__actions { display: flex; gap: var(--space-1); }
 .doc-card.is-error { border-color: var(--status-rejected-border); background: var(--status-rejected-bg); }
+.document-verification { margin: var(--space-2) 0 var(--space-4); padding: var(--space-4); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--surface-app); }
+.doc-extraction { margin-top: var(--space-3); border-top: 1px solid var(--border-subtle); padding-top: var(--space-2); }
+.doc-extraction summary { color: var(--text-link); cursor: pointer; font-size: var(--fs-xs); font-weight: 600; }
+.doc-extraction__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); margin-top: var(--space-2); }
+.doc-extraction__grid label { color: var(--text-muted); font-size: var(--fs-2xs); }
+.doc-extraction__grid .input { margin-top: 2px; padding: 6px 8px; font-size: var(--fs-xs); }
+@media (max-width: 520px) { .doc-extraction__grid { grid-template-columns: 1fr; } }
 
 /* ---- from css/tables.css ---- */
 /* ============================================================
@@ -1340,7 +1349,7 @@ p { line-height: var(--lh-normal); color: var(--text-secondary); }
    ============================================================ */
 
 .hero-banner {
-  background-image: url('/static/images/hero-banner.png');
+  background-image: url('/static/assets/hero-banner.png');
   background-size: cover;
   background-position: center;
   border-radius: var(--radius-lg);
@@ -1492,6 +1501,11 @@ p { line-height: var(--lh-normal); color: var(--text-secondary); }
 .model-card { border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: var(--space-4); }
 .model-card__head { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-2); }
 .model-vs { text-align: center; color: var(--text-muted); font-size: var(--fs-xs); font-weight: 700; padding: var(--space-2) 0; }
+.claim-summary-card { border-left: 4px solid var(--color-forest); }
+.claim-summary-card__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+.claim-summary-card__grid div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.claim-summary-card__grid span { color: var(--text-muted); font-size: var(--fs-2xs); text-transform: uppercase; letter-spacing: 0.04em; }
+.claim-summary-card__grid strong { font-size: var(--fs-sm); overflow-wrap: anywhere; }
 
 .contradiction-card, .missing-doc-card, .duplicate-card {
   border-radius: var(--radius-md);
@@ -1503,6 +1517,9 @@ p { line-height: var(--lh-normal); color: var(--text-secondary); }
 
 @media (max-width: 1000px) {
   .claim-detail-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 520px) {
+  .claim-summary-card__grid { grid-template-columns: 1fr; }
 }
 
 /* ---- from css/pages/new-claim.css ---- */

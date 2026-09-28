@@ -6,7 +6,7 @@
  */
 
 import { USE_MOCK_DATA, request, mockResolve, mockReject } from "./api.js";
-import { findUserByEmail } from "../mock/users.js";
+import { findUserByEmail, registerUser } from "../mock/users.js";
 import { storage } from "../utils/storage.js";
 
 export const authService = {
@@ -21,6 +21,14 @@ export const authService = {
     }
     // TODO: Replace with confirmed backend endpoint.
     return request("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) });
+  },
+
+  async register(data) {
+    if (USE_MOCK_DATA) {
+      const user = registerUser(data);
+      return mockResolve({ id: user.id, name: user.name, email: user.email, role: user.role, avatarInitials: user.avatarInitials });
+    }
+    return request("/auth/register", { method: "POST", body: JSON.stringify(data) });
   },
 
   logout() {

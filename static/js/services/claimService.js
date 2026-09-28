@@ -38,6 +38,7 @@ export const claimService = {
           (c) =>
             c.id.toLowerCase().includes(q) ||
             c.product.name.toLowerCase().includes(q) ||
+            c.product.serialNumber.toLowerCase().includes(q) ||
             c.faultType.toLowerCase().includes(q)
         );
       }
@@ -51,6 +52,15 @@ export const claimService = {
         const wantActive = filters.warrantyStatus === "active";
         results = results.filter((c) => c.warranty.active === wantActive);
       }
+      if (filters.confidenceRange && filters.confidenceRange !== "all") {
+        results = results.filter((c) => {
+          const confidence = Math.max(c.analysis.modelOne.confidence.valid, c.analysis.modelOne.confidence.invalid, c.analysis.modelOne.confidence.review);
+          return filters.confidenceRange === "high" ? confidence >= 0.8 : filters.confidenceRange === "medium" ? confidence >= 0.6 && confidence < 0.8 : confidence < 0.6;
+        });
+      }
+      if (filters.consistency && filters.consistency !== "all") results = results.filter((c) => c.analysis.consistency === filters.consistency);
+      if (filters.submittedFrom) results = results.filter((c) => c.submittedAt.slice(0, 10) >= filters.submittedFrom);
+      if (filters.submittedTo) results = results.filter((c) => c.submittedAt.slice(0, 10) <= filters.submittedTo);
       return mockResolve(results);
     }
     // TODO: Replace with confirmed backend endpoint.

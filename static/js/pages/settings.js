@@ -7,6 +7,8 @@ import { icon } from "../components/icons.js";
 import { showToast } from "../components/toast.js";
 import { applyTheme } from "../components/theme.js";
 import { initials } from "../utils/formatters.js";
+import { authService } from "../services/authService.js";
+import { storage } from "../utils/storage.js";
 
 export function renderSettingsPage(container, session) {
   container.innerHTML = `
@@ -28,11 +30,11 @@ export function renderSettingsPage(container, session) {
         </div>
       </div>
       <div class="form-row">
-        <div class="field"><label class="field__label">Full name</label><input class="input" value="${session.name}"></div>
+        <div class="field"><label class="field__label" for="profile-name">Full name</label><input class="input" id="profile-name" value="${session.name}"></div>
         <div class="field"><label class="field__label">Role</label><input class="input" value="${session.role === "admin" ? "Reviewer / Admin" : "Frontend Developer"}" disabled></div>
       </div>
-      <div class="field"><label class="field__label">Email address</label><input class="input" type="email" value="${session.email}"></div>
-      <div class="field"><label class="field__label">Phone <span class="optional">(optional)</span></label><input class="input" type="tel" placeholder="+254 7XX XXX XXX"></div>
+      <div class="field"><label class="field__label" for="profile-email">Email address</label><input class="input" id="profile-email" type="email" value="${session.email}"></div>
+      <div class="field"><label class="field__label" for="profile-phone">Phone <span class="optional">(optional)</span></label><input class="input" id="profile-phone" type="tel" value="${session.phone || ""}" placeholder="+254 7XX XXX XXX"></div>
       <button class="btn btn-primary" id="save-profile">Save changes</button>
     </div>
 
@@ -45,9 +47,9 @@ export function renderSettingsPage(container, session) {
     </div>
 
     <div id="tab-notifications" class="card" style="display:none;max-width:520px">
-      <label class="checkbox-row" style="margin-bottom:var(--space-4)"><input type="checkbox" checked>Email me when a claim decision is ready</label>
-      <label class="checkbox-row" style="margin-bottom:var(--space-4)"><input type="checkbox" checked>Email me about warranty expiry</label>
-      <label class="checkbox-row" style="margin-bottom:var(--space-4)"><input type="checkbox">SMS alerts for urgent claim updates</label>
+      <label class="checkbox-row" style="margin-bottom:var(--space-4)"><input type="checkbox" id="notify-decisions" ${storage.get("notification-preferences", {}).decisions !== false ? "checked" : ""}>Email me when a claim decision is ready</label>
+      <label class="checkbox-row" style="margin-bottom:var(--space-4)"><input type="checkbox" id="notify-warranty" ${storage.get("notification-preferences", {}).warranty !== false ? "checked" : ""}>Email me about warranty expiry</label>
+      <label class="checkbox-row" style="margin-bottom:var(--space-4)"><input type="checkbox" id="notify-sms" ${storage.get("notification-preferences", {}).sms === true ? "checked" : ""}>SMS alerts for urgent claim updates</label>
       <button class="btn btn-primary" id="save-notifs">Save preferences</button>
     </div>
 
@@ -70,7 +72,11 @@ export function renderSettingsPage(container, session) {
     });
   });
 
-  document.getElementById("save-profile")?.addEventListener("click", () => showToast("Profile changes saved.", "success"));
+  document.getElementById("save-profile")?.addEventListener("click", () => {
+    const updatedSession = { ...authService.getSession(), name: document.getElementById("profile-name").value.trim(), email: document.getElementById("profile-email").value.trim(), phone: document.getElementById("profile-phone").value.trim() };
+    authService.saveSession(updatedSession, true);
+    showToast("Profile changes saved.", "success");
+  });
   document.getElementById("change-photo")?.addEventListener("click", () => document.getElementById("photo-input")?.click());
   document.getElementById("photo-input")?.addEventListener("change", (event) => {
     const file = event.target.files?.[0];
@@ -92,7 +98,10 @@ export function renderSettingsPage(container, session) {
     };
     reader.readAsDataURL(file);
   });
-  document.getElementById("save-notifs")?.addEventListener("click", () => showToast("Notification preferences saved.", "success"));
+  document.getElementById("save-notifs")?.addEventListener("click", () => {
+    storage.set("notification-preferences", { decisions: document.getElementById("notify-decisions").checked, warranty: document.getElementById("notify-warranty").checked, sms: document.getElementById("notify-sms").checked });
+    showToast("Notification preferences saved.", "success");
+  });
   document.getElementById("theme-light")?.addEventListener("click", () => applyTheme("light"));
   document.getElementById("theme-dark")?.addEventListener("click", () => applyTheme("dark"));
 }

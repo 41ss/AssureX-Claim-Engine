@@ -17,6 +17,7 @@ import { formatPercent } from "../utils/formatters.js";
 import { getQueryParam } from "../utils/helpers.js";
 import { openModal } from "../components/modal.js";
 import { showToast } from "../components/toast.js";
+import { debounce } from "../utils/helpers.js";
 
 export async function renderAdminReviewPage(container) {
   const id = getQueryParam("id");
@@ -27,6 +28,11 @@ export async function renderAdminReviewPage(container) {
 async function renderQueue(container) {
   container.innerHTML = `
     <div class="page-header"><div><h2>Review Queue</h2><p class="text-sm">Claims flagged for manual review by the decision engine.</p></div></div>
+    <div class="filter-bar">
+      <div class="filter-bar__search search-input">${icon("search", { size: 16 })}<input id="review-search" placeholder="Search claim, product or fault..."></div>
+      <div class="select-wrap"><select class="select" id="review-consistency"><option value="all">All model outcomes</option><option>Model Disagreement</option><option>Weak Match</option><option>Acceptable Match</option></select></div>
+      <div class="select-wrap"><select class="select" id="review-warranty"><option value="all">Any warranty</option><option value="active">Active warranty</option><option value="expired">Expired warranty</option></select></div>
+    </div>
     <div class="table-wrap">
       <table class="data-table">
         <thead><tr><th>Claim</th><th>Fault</th><th>Status</th><th>Warranty</th><th>Submitted</th><th></th></tr></thead>
@@ -34,22 +40,26 @@ async function renderQueue(container) {
       </table>
     </div>`;
 
-  const tbody = document.getElementById("queue-tbody");
-  try {
-    const queue = await adminService.getReviewQueue();
-    tbody.innerHTML = queue.length
-      ? queue
-          .map((c) =>
-            claimTableRow(c, { showActions: false }).replace(
-              "</tr>",
-              `<td class="col-actions"><a class="btn btn-primary btn-sm" href="/admin-review?id=${c.id}">${icon("eye", { size: 14 })}Review</a></td></tr>`
-            )
-          )
-          .join("")
-      : `<tr><td colspan="6">${emptyState({ title: "Queue is empty", body: "Nothing needs manual review right now." })}</td></tr>`;
-  } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="6">${errorState({ body: friendlyError(err), onRetry: () => renderQueue(container) })}</td></tr>`;
-  }
+  const loadQueue = async () => {
+    const tbody = document.getElementById("queue-tbody");
+    tbody.innerHTML = skeletonTableRows(6, 6);
+    try {
+      const queue = await adminService.getReviewQueue({
+        search: document.getElementById("review-search").value,
+        consistency: document.getElementById("review-consistency").value,
+        warranty: document.getElementById("review-warranty").value,
+      });
+      tbody.innerHTML = queue.length
+        ? queue.map((c) => claimTableRow(c, { showActions: false }).replace("</tr>", `<td class="col-actions"><a class="btn btn-primary btn-sm" href="/admin-review?id=${c.id}">${icon("eye", { size: 14 })}Review</a></td></tr>`)).join("")
+        : `<tr><td colspan="6">${emptyState({ title: "Queue is empty", body: "Nothing needs manual review right now." })}</td></tr>`;
+    } catch (err) {
+      tbody.innerHTML = `<tr><td colspan="6">${errorState({ body: friendlyError(err), onRetry: loadQueue })}</td></tr>`;
+    }
+  };
+  document.getElementById("review-search").addEventListener("input", debounce(loadQueue, 250));
+  document.getElementById("review-consistency").addEventListener("change", loadQueue);
+  document.getElementById("review-warranty").addEventListener("change", loadQueue);
+  loadQueue();
 }
 
 async function renderReviewDetail(container, id) {
@@ -116,6 +126,7 @@ async function renderReviewDetail(container, id) {
               <button class="btn btn-secondary btn-block" id="request-info-btn">${icon("alert-triangle", { size: 15 })}Request Information</button>
             </div>
           </div>
+          ${claim.auditHistory?.length ? `<div class="card" style="margin-top:var(--space-4)"><div class="card__header"><div class="card__title">Audit History</div></div>${claim.auditHistory.map((entry) => `<div class="detail-row"><dt>${entry.action.replace("_", " ")} · ${entry.reviewer}</dt><dd>${new Date(entry.timestamp).toLocaleString("en-GB")}</dd></div>${entry.comment ? `<p class="text-xs text-muted" style="margin-bottom:var(--space-2)">${entry.comment}</p>` : ""}`).join("")}</div>` : ""}
         </div>
       </div>`;
 
