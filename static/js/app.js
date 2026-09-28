@@ -34,7 +34,7 @@ export async function initShell(activePage) {
   }
 
   root.innerHTML = `
-    ${renderMobileHeader()}
+    ${renderMobileHeader(notifications)}
     ${renderSidebar({ activeKey: activePage, session })}
     <div class="shell-main">
       ${renderTopbar({ notifications })}
@@ -45,6 +45,12 @@ export async function initShell(activePage) {
 
   wireTopbarInteractions();
   wireThemeToggle();
+
+  document.querySelector("[data-mobile-search-toggle]")?.addEventListener("click", () => {
+    const search = document.querySelector("[data-mobile-search-form]");
+    search?.classList.toggle("is-open");
+    if (search?.classList.contains("is-open")) search.querySelector("input")?.focus();
+  });
 
   document.getElementById("logout-trigger")?.addEventListener("click", () => {
     authService.logout();

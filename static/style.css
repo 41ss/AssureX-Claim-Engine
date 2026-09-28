@@ -554,6 +554,10 @@ p { line-height: var(--lh-normal); color: var(--text-secondary); }
 .mobile-header__brand { display: flex; align-items: center; gap: var(--space-2); }
 .mobile-header__brand img { width: 24px; height: 24px; }
 .mobile-header__brand span { font-family: var(--font-display); font-size: var(--fs-md); }
+.mobile-header__actions { display: flex; align-items: center; gap: var(--space-2); margin-left: auto; }
+.mobile-header .btn-icon { color: #fff; }
+.mobile-search { display: none; position: absolute; left: var(--space-4); right: var(--space-4); top: calc(100% + 8px); z-index: 30; box-shadow: var(--shadow-lg); }
+.mobile-search.is-open { display: flex; }
 
 /* ============================================================
    RESPONSIVE BREAKPOINTS
@@ -579,7 +583,7 @@ p { line-height: var(--lh-normal); color: var(--text-secondary); }
   .sidebar { display: none; }
   .mobile-header { display: flex; }
   .bottom-nav { display: block; }
-  .content { padding: var(--space-4); padding-bottom: 84px; }
+  .content { padding: var(--space-4); padding-bottom: 128px; }
   .topbar { display: none; }
   .page-header { flex-direction: column; align-items: stretch; }
   .page-header__actions { flex-wrap: wrap; }
@@ -690,6 +694,9 @@ p { line-height: var(--lh-normal); color: var(--text-secondary); }
   display: flex;
   align-items: flex-start;
   gap: var(--space-4);
+  min-width: 0;
+  min-height: 124px;
+  height: 100%;
 }
 
 .stat-card__icon {
@@ -1069,8 +1076,11 @@ p { line-height: var(--lh-normal); color: var(--text-secondary); }
 }
 .notif-item:last-child { border-bottom: none; }
 .notif-item.is-unread { background: var(--color-mint); }
-.notif-item__title { font-weight: 600; }
+.notif-item__body { min-width: 0; flex: 1; }
+.notif-item__title { font-weight: 600; color: var(--text-primary); }
 .notif-item__time { font-size: var(--fs-2xs); color: var(--text-muted); margin-top: 4px; }
+.notif-item__dot { width: 7px; height: 7px; border-radius: 50%; background: var(--color-forest); flex-shrink: 0; margin-top: 7px; }
+.mobile-notif-dropdown .notif-panel { right: -8px; width: min(340px, calc(100vw - 24px)); }
 
 /* ---------- Confirmation dialog reuses .modal ---------- */
 
@@ -1166,6 +1176,8 @@ p { line-height: var(--lh-normal); color: var(--text-secondary); }
 
 @media (max-width: 720px) {
   .form-row { grid-template-columns: 1fr; }
+  .step-panel .page-header__actions { margin-bottom: 84px; }
+  .step-panel #btn-next, .step-panel #btn-back { scroll-margin-bottom: 100px; }
 }
 
 /* Search input used in topbar */
@@ -1184,6 +1196,9 @@ p { line-height: var(--lh-normal); color: var(--text-secondary); }
   font-size: var(--fs-sm);
 }
 .search-input input:focus { outline: none; }
+.search-form { position: relative; }
+.search-submit { display: inline-flex; align-items: center; justify-content: center; color: var(--text-muted); flex-shrink: 0; }
+.search-submit:hover { color: var(--text-primary); }
 .search-input .kbd {
   font-size: var(--fs-2xs);
   color: var(--text-muted);
@@ -1323,7 +1338,9 @@ p { line-height: var(--lh-normal); color: var(--text-secondary); }
    ============================================================ */
 
 .hero-banner {
-  background: linear-gradient(150deg, var(--color-deep-forest) 0%, var(--color-forest) 75%);
+  background-image: url('/static/images/ChatGPT Image 28 Sept 2026, 20_56_25.png');
+  background-size: cover;
+  background-position: center;
   border-radius: var(--radius-lg);
   color: #fff;
   padding: var(--space-8);
@@ -1337,7 +1354,7 @@ p { line-height: var(--lh-normal); color: var(--text-secondary); }
   right: -60px; top: -60px;
   width: 260px; height: 260px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(214,181,106,0.25), transparent 70%);
+  background: rgba(9, 37, 31, 0.28);
 }
 .hero-banner__eyebrow { color: var(--color-sage); font-size: var(--fs-xs); font-weight: 600; margin-bottom: var(--space-2); }
 .hero-banner h1 { color: #fff; font-size: var(--fs-2xl); max-width: 20ch; }
@@ -1351,15 +1368,20 @@ p { line-height: var(--lh-normal); color: var(--text-secondary); }
   grid-template-columns: repeat(4, 1fr);
   gap: var(--space-4);
   margin-bottom: var(--space-6);
+  align-items: stretch;
+  grid-auto-rows: 1fr;
 }
+.stat-grid--three { grid-template-columns: repeat(3, 1fr); }
 
 .dash-grid {
   display: grid;
   grid-template-columns: 1.4fr 1fr 1fr;
   gap: var(--space-4);
   margin-bottom: var(--space-6);
-  align-items: start;
+  align-items: stretch;
 }
+.dash-grid > .card { min-width: 0; height: 100%; }
+.dash-grid--two { grid-template-columns: 1fr 1fr; }
 
 .recent-claims-list { display: flex; flex-direction: column; }
 .recent-claim {
@@ -1483,7 +1505,7 @@ p { line-height: var(--lh-normal); color: var(--text-secondary); }
 
 /* ---- from css/pages/new-claim.css ---- */
 /* NEW CLAIM flow */
-.step-panel { max-width: 720px; }
+.step-panel { max-width: 860px; width: 100%; margin: 0 auto; }
 .readiness-tip { background: var(--color-mint); border-radius: var(--radius-md); padding: var(--space-4); font-size: var(--fs-sm); margin-top: var(--space-5); }
 .product-type-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-3); margin-bottom: var(--space-5); }
 .product-type-card {

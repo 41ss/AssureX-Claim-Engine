@@ -321,6 +321,7 @@ function computeReadiness() {
 }
 
 async function submitClaim() {
+  step += 1;
   renderStep(); // shows the "Claim submitted" panel
   const timelineEl = document.getElementById("submit-timeline");
   const stages = [

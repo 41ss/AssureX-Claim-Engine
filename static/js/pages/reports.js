@@ -15,9 +15,9 @@ export async function renderReportsPage(container) {
   container.innerHTML = `
     <div class="page-header"><div><h2>Reports</h2><p class="text-sm">Claim outcomes, model performance and downloadable reports.</p></div></div>
 
-    <div class="stat-grid" id="report-stats" style="grid-template-columns:repeat(3,1fr)">${skeletonLines(3)}</div>
+    <div class="stat-grid stat-grid--three" id="report-stats">${skeletonLines(3)}</div>
 
-    <div class="dash-grid" style="grid-template-columns:1fr 1fr">
+    <div class="dash-grid dash-grid--two">
       <div class="card">
         <div class="card__header"><div class="card__title">Claim Outcome</div></div>
         <div id="outcome-chart" style="display:flex;align-items:center;gap:var(--space-6)">${skeletonLines(2)}</div>

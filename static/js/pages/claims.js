@@ -57,6 +57,8 @@ let allResults = [];
 
 export async function renderClaimsPage(container) {
   resetFilters();
+  const initialSearch = new URLSearchParams(window.location.search).get("search") || "";
+  state.filters.search = initialSearch;
   container.innerHTML = `
     <div class="page-header">
       <div>
@@ -71,7 +73,7 @@ export async function renderClaimsPage(container) {
     <div class="filter-bar">
       <div class="filter-bar__search search-input">
         ${icon("search", { size: 16 })}
-        <input type="text" id="claims-search" placeholder="Search by Claim ID, product or fault type...">
+        <input type="text" id="claims-search" value="${initialSearch.replace(/"/g, "&quot;")}" placeholder="Search by Claim ID, product or fault type...">
       </div>
       <div id="filter-controls" style="display:flex;gap:var(--space-3);flex-wrap:wrap"></div>
       <button class="btn btn-ghost btn-sm" id="clear-filters">${icon("x-circle", { size: 14 })}Clear</button>

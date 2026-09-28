@@ -22,7 +22,10 @@ export function renderSettingsPage(container, session) {
     <div id="tab-profile" class="card" style="max-width:520px">
       <div style="display:flex;align-items:center;gap:var(--space-4);margin-bottom:var(--space-6)">
         <div class="avatar" style="width:56px;height:56px;font-size:var(--fs-lg)">${initials(session.name)}</div>
-        <div><button class="btn btn-secondary btn-sm">Change photo</button></div>
+        <div>
+          <button class="btn btn-secondary btn-sm" id="change-photo" type="button">Change photo</button>
+          <input id="photo-input" type="file" accept="image/*" hidden>
+        </div>
       </div>
       <div class="form-row">
         <div class="field"><label class="field__label">Full name</label><input class="input" value="${session.name}"></div>
@@ -68,6 +71,27 @@ export function renderSettingsPage(container, session) {
   });
 
   document.getElementById("save-profile")?.addEventListener("click", () => showToast("Profile changes saved.", "success"));
+  document.getElementById("change-photo")?.addEventListener("click", () => document.getElementById("photo-input")?.click());
+  document.getElementById("photo-input")?.addEventListener("change", (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      showToast("Please choose an image file.", "error");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const avatar = document.querySelector("#tab-profile .avatar");
+      if (avatar) {
+        avatar.textContent = "";
+        avatar.style.backgroundImage = `url(${reader.result})`;
+        avatar.style.backgroundSize = "cover";
+        avatar.style.backgroundPosition = "center";
+      }
+      showToast("Profile photo updated.", "success");
+    };
+    reader.readAsDataURL(file);
+  });
   document.getElementById("save-notifs")?.addEventListener("click", () => showToast("Notification preferences saved.", "success"));
   document.getElementById("theme-light")?.addEventListener("click", () => applyTheme("light"));
   document.getElementById("theme-dark")?.addEventListener("click", () => applyTheme("dark"));

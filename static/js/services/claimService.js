@@ -5,13 +5,32 @@
  */
 
 import { USE_MOCK_DATA, request, mockResolve } from "./api.js";
-import { MOCK_CLAIMS, getClaimById } from "../mock/claims.js";
+import { MOCK_CLAIMS } from "../mock/claims.js";
 import { generateClaimId, wait } from "../utils/helpers.js";
+
+const CLAIMS_STORAGE_KEY = "assurex:mock-claims";
+
+function mockClaims() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(CLAIMS_STORAGE_KEY) || "null");
+    return Array.isArray(stored) ? stored : [...MOCK_CLAIMS];
+  } catch (err) {
+    return [...MOCK_CLAIMS];
+  }
+}
+
+function saveMockClaims(claims) {
+  try {
+    localStorage.setItem(CLAIMS_STORAGE_KEY, JSON.stringify(claims));
+  } catch (err) {
+    // Keep the demo usable when storage is unavailable.
+  }
+}
 
 export const claimService = {
   async getClaims(filters = {}) {
     if (USE_MOCK_DATA) {
-      let results = [...MOCK_CLAIMS];
+      let results = mockClaims();
 
       if (filters.search) {
         const q = filters.search.toLowerCase();
@@ -41,7 +60,7 @@ export const claimService = {
 
   async getClaim(id) {
     if (USE_MOCK_DATA) {
-      return mockResolve(getClaimById(id) || null);
+      return mockResolve(mockClaims().find((claim) => claim.id === id) || null);
     }
     // TODO: Replace with confirmed backend endpoint.
     return request(`/claims/${id}`);
@@ -49,15 +68,34 @@ export const claimService = {
 
   async createClaim(data) {
     if (USE_MOCK_DATA) {
+      const claims = mockClaims();
       const claim = {
-        id: generateClaimId(MOCK_CLAIMS.length),
+        id: generateClaimId(claims.length),
+        userId: "USR-1001",
         status: "draft",
         stage: "Draft",
         submittedAt: new Date().toISOString(),
         documents: [],
+        analysis: {
+          modelOne: { name: "Python Classification Model", version: "v1.4.0", prediction: "Manual Review", confidence: { valid: 0.33, invalid: 0.33, review: 0.34 } },
+          modelTwo: { name: "Google Teachable Machine", version: "v1.2.0", prediction: "Manual Review", confidence: { valid: 0.33, invalid: 0.33, review: 0.34 } },
+          consistency: "Pending Analysis",
+          confidenceDifference: 0,
+        },
+        decision: {
+          result: "Manual Review Required",
+          explanation: "Your claim was received and is ready for model and policy review.",
+          supportingFactors: [],
+          opposingFactors: [],
+          contradictions: [],
+          missingDocuments: [],
+          duplicateWarning: null,
+        },
+        timeline: [{ label: "Submitted", timestamp: new Date().toISOString(), complete: true }],
         ...data,
       };
-      MOCK_CLAIMS.unshift(claim);
+      claims.unshift(claim);
+      saveMockClaims(claims);
       return mockResolve(claim);
     }
     // TODO: Replace with confirmed backend endpoint.
@@ -78,6 +116,13 @@ export const claimService = {
 
   async submitClaim(id) {
     if (USE_MOCK_DATA) {
+      const claims = mockClaims();
+      const claim = claims.find((item) => item.id === id);
+      if (claim) {
+        claim.status = "review";
+        claim.stage = "Under Evaluation";
+        saveMockClaims(claims);
+      }
       return mockResolve({ id, status: "review", stage: "Under Evaluation" });
     }
     // TODO: Replace with confirmed backend endpoint.
@@ -86,7 +131,7 @@ export const claimService = {
 
   async getStatus(id) {
     if (USE_MOCK_DATA) {
-      const claim = getClaimById(id);
+      const claim = mockClaims().find((item) => item.id === id);
       return mockResolve(claim ? { status: claim.status, stage: claim.stage, timeline: claim.timeline } : null);
     }
     // TODO: Replace with confirmed backend endpoint.
@@ -95,7 +140,7 @@ export const claimService = {
 
   async getAnalysis(id) {
     if (USE_MOCK_DATA) {
-      const claim = getClaimById(id);
+      const claim = mockClaims().find((item) => item.id === id);
       return mockResolve(claim ? claim.analysis : null);
     }
     // TODO: Replace with confirmed backend endpoint.
