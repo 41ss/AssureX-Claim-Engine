@@ -58,6 +58,7 @@ function buildPage(claim) {
 
     <div id="tab-overview" class="claim-detail-grid">
       <div>
+        ${summaryCard(claim)}
         <div class="card" style="margin-bottom:var(--space-4)">
           <div class="card__header"><div class="card__title">Claim Information</div></div>
           <dl>
@@ -134,6 +135,29 @@ function buildPage(claim) {
       </div>
     </div>
   `;
+}
+
+function summaryCard(claim) {
+  const purchaseDate = claim.product.purchaseDate || claim.warranty.start || claim.incidentDate;
+  const productAge = purchaseDate ? Math.max(0, Math.floor((Date.now() - new Date(purchaseDate).getTime()) / (1000 * 60 * 60 * 24 * 365.25))) : "—";
+  const warrantyStart = claim.warranty.start || "—";
+  const warrantyExpiry = claim.warranty.expiry || "—";
+  const documents = claim.documents || [];
+  const missing = claim.decision.missingDocuments || [];
+  return `
+    <div class="card claim-summary-card" style="margin-bottom:var(--space-4)">
+      <div class="card__header"><div><div class="card__title">Claim Summary Card</div><div class="card__subtitle">Standardized claim information for independent image classification.</div></div><span class="badge badge--draft">No model result</span></div>
+      <div class="claim-summary-card__grid">
+        <div><span>Product</span><strong>${claim.product.name}</strong></div>
+        <div><span>Product age</span><strong>${productAge === "—" ? "—" : `${productAge} year${productAge === 1 ? "" : "s"}`}</strong></div>
+        <div><span>Fault category</span><strong>${claim.faultType}</strong></div>
+        <div><span>Warranty status</span><strong>${claim.warranty.active ? "Active" : "Expired"}</strong></div>
+        <div><span>Warranty period</span><strong>${warrantyStart} to ${warrantyExpiry}</strong></div>
+        <div><span>Serial-number status</span><strong>${claim.product.serialNumber ? "Provided" : "Missing"}</strong></div>
+        <div><span>Evidence files</span><strong>${documents.length} uploaded</strong></div>
+        <div><span>Missing documents</span><strong>${missing.length ? missing.join(", ") : "None"}</strong></div>
+      </div>
+    </div>`;
 }
 
 function modelCard(model) {

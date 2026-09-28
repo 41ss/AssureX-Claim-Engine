@@ -10,12 +10,13 @@ import { multiSeriesAreaChart } from "../components/chart.js";
 import { skeletonCards, skeletonLines, skeletonTableRows } from "../components/loadingState.js";
 import { errorState, friendlyError } from "../components/errorState.js";
 import { emptyState } from "../components/emptyState.js";
+import { showToast } from "../components/toast.js";
 
 export async function renderAdminDashboardPage(container, session) {
   container.innerHTML = `
     <div class="page-header">
       <div><h2>Admin Dashboard</h2><p class="text-sm">System-wide claim activity and model health, ${session.name.split(" ")[0]}.</p></div>
-      <div class="page-header__actions"><a href="/admin-review" class="btn btn-primary">${icon("shield-check", { size: 16 })}Review Queue</a></div>
+      <div class="page-header__actions"><button class="btn btn-secondary" type="button" id="export-admin-csv">${icon("download", { size: 16 })}Export CSV</button><a href="/admin-review" class="btn btn-primary">${icon("shield-check", { size: 16 })}Review Queue</a></div>
     </div>
 
     <div class="stat-grid" id="admin-stat-grid">${skeletonCards(4)}</div>
@@ -53,6 +54,23 @@ export async function renderAdminDashboardPage(container, session) {
   loadStats();
   loadChart();
   loadQueue();
+  document.getElementById("export-admin-csv").addEventListener("click", exportAdminQueue);
+}
+
+async function exportAdminQueue() {
+  try {
+    const claims = await adminService.getReviewQueue();
+    const rows = [["Claim ID", "Product", "Fault", "Status", "Warranty", "Submitted"], ...claims.map((claim) => [claim.id, claim.product.name, claim.faultType, claim.status, claim.warranty.active ? "Active" : "Expired", claim.submittedAt])];
+    const csv = rows.map((row) => row.map((value) => `"${String(value ?? "").replace(/"/g, '""')}"`).join(",")).join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "assurex-review-queue.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    showToast("We couldn't export the review queue.", "error");
+  }
 }
 
 async function loadStats() {

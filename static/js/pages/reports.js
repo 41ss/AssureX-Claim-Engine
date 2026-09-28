@@ -28,6 +28,11 @@ export async function renderReportsPage(container) {
       </div>
     </div>
 
+    <div class="card" id="model-performance-card">
+      <div class="card__header"><div><div class="card__title">Model Performance & Consistency</div><div class="card__subtitle">Independent model metrics and prediction agreement.</div></div></div>
+      <div id="model-performance">${skeletonLines(4)}</div>
+    </div>
+
     <div class="card">
       <div class="card__header"><div class="card__title">Available Reports</div></div>
       <div id="reports-list"></div>
@@ -36,6 +41,7 @@ export async function renderReportsPage(container) {
 
   loadStats();
   loadCharts();
+  loadModelPerformance();
   loadReportsList();
 }
 
@@ -78,6 +84,32 @@ async function loadCharts() {
   }
 }
 
+async function loadModelPerformance() {
+  const slot = document.getElementById("model-performance");
+  try {
+    const performance = await reportService.getModelPerformance();
+    const rows = [
+      ["Accuracy", performance.pythonModel.accuracy, performance.teachableMachine.accuracy],
+      ["Precision", performance.pythonModel.precision, performance.teachableMachine.precision],
+      ["Recall", performance.pythonModel.recall, performance.teachableMachine.recall],
+      ["F1 score", performance.pythonModel.f1, performance.teachableMachine.f1],
+    ];
+    const consistency = performance.consistencyBreakdown;
+    slot.innerHTML = `
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Metric</th><th>Python model (${performance.pythonModel.version})</th><th>Teachable Machine (${performance.teachableMachine.version})</th></tr></thead>
+          <tbody>${rows.map(([label, python, teachable]) => `<tr><td data-label="Metric">${label}</td><td data-label="Python model">${formatPercent(python)}</td><td data-label="Teachable Machine">${formatPercent(teachable)}</td></tr>`).join("")}</tbody>
+        </table>
+      </div>
+      <div class="chart-legend model-consistency-summary">
+        <span>Strong ${consistency.strongMatch}%</span><span>Acceptable ${consistency.acceptableMatch}%</span><span>Weak ${consistency.weakMatch}%</span><span>Disagreement ${consistency.modelDisagreement}%</span><span>Uncertain ${consistency.uncertainResult}%</span>
+      </div>`;
+  } catch (err) {
+    slot.innerHTML = errorState({ body: friendlyError(err), onRetry: loadModelPerformance });
+  }
+}
+
 async function loadReportsList() {
   const slot = document.getElementById("reports-list");
   try {
@@ -96,9 +128,26 @@ async function loadReportsList() {
       )
       .join("");
     slot.querySelectorAll("[data-report]").forEach((btn) =>
-      btn.addEventListener("click", () => showToast("Report download isn't wired to a real file yet — connect the backend report endpoint.", "info"))
+      btn.addEventListener("click", () => downloadReport(reports.find((report) => report.id === btn.dataset.report)))
     );
   } catch (err) {
     slot.innerHTML = errorState({ body: friendlyError(err), onRetry: loadReportsList });
   }
+}
+
+function downloadReport(report) {
+  if (!report) return;
+  const csv = [
+    ["Report ID", "Title", "Period", "Generated"],
+    [report.id, report.title, report.period, formatDate(report.generatedAt)],
+    [],
+    ["Note", "This demonstration export is generated in the browser. The production backend will provide the complete report file."],
+  ].map((row) => row.map((value) => `"${String(value ?? "").replace(/"/g, '""')}"`).join(",")).join("\n");
+  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${report.id}-${report.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+  showToast("Report download started.", "success");
 }

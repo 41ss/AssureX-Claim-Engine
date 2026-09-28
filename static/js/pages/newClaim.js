@@ -32,8 +32,8 @@ const DOC_CATEGORIES = [
 let step = 0;
 let container;
 const draft = {
-  product: { type: "", name: "", brand: "", model: "", serialNumber: "", purchaseDate: "", purchasePrice: "", warrantyProvider: "", warrantyStart: "", warrantyExpiry: "" },
-  details: { issueDescription: "", incidentDate: "", damageType: "", notes: "" },
+  product: { type: "", name: "", brand: "", model: "", serialNumber: "", purchaseDate: "", purchasePrice: "", retailer: "", warrantyProvider: "", warrantyStart: "", warrantyExpiry: "", warrantyCoverage: "", warrantyExclusions: "" },
+  details: { issueDescription: "", incidentDate: "", damageType: "", notes: "", repairHistory: "", serviceCenter: "", replacedParts: "", replacementDetails: "" },
   documents: {},
 };
 
@@ -100,8 +100,15 @@ function productStepHtml() {
         <div class="field"><label class="field__label" for="p-price">Purchase price <span class="optional">(optional)</span></label><input class="input" type="number" id="p-price" value="${draft.product.purchasePrice}" placeholder="KES"></div>
       </div>
       <div class="form-row">
+        <div class="field"><label class="field__label" for="p-retailer">Retailer <span class="optional">(optional)</span></label><input class="input" id="p-retailer" value="${draft.product.retailer}" placeholder="Where it was purchased"></div>
         <div class="field"><label class="field__label" for="p-warranty-provider">Warranty provider</label><input class="input" id="p-warranty-provider" value="${draft.product.warrantyProvider}" placeholder="e.g. Dell Premium Care"></div>
+      </div>
+      <div class="form-row">
+        <div class="field"><label class="field__label" for="p-warranty-start">Warranty start date</label><input class="input" type="date" id="p-warranty-start" value="${draft.product.warrantyStart}"></div>
         <div class="field"><label class="field__label" for="p-warranty-expiry">Warranty expiry</label><input class="input" type="date" id="p-warranty-expiry" value="${draft.product.warrantyExpiry}"></div>
+      </div>
+      <div class="field"><label class="field__label" for="p-warranty-coverage">Warranty coverage and exclusions <span class="optional">(optional)</span></label><textarea class="textarea" id="p-warranty-coverage" placeholder="Covered faults, exclusions, reporting deadlines...">${draft.product.warrantyCoverage}</textarea></div>
+      <div class="field"><label class="field__label" for="p-warranty-exclusions">Excluded damage <span class="optional">(optional)</span></label><input class="input" id="p-warranty-exclusions" value="${draft.product.warrantyExclusions}" placeholder="Water damage, accidental damage, etc."></div>
       </div>
     </div>
     ${stepFooter()}`;
@@ -137,6 +144,12 @@ function detailsStepHtml() {
         <label class="field__label" for="d-notes">Additional notes <span class="optional">(optional)</span></label>
         <textarea class="textarea" id="d-notes" placeholder="Anything else the reviewer should know?">${draft.details.notes}</textarea>
       </div>
+      <div class="field"><label class="field__label" for="d-repair-history">Repair history <span class="optional">(optional)</span></label><textarea class="textarea" id="d-repair-history" placeholder="Previous repair dates, outcomes, and costs...">${draft.details.repairHistory}</textarea></div>
+      <div class="form-row">
+        <div class="field"><label class="field__label" for="d-service-center">Service center <span class="optional">(optional)</span></label><input class="input" id="d-service-center" value="${draft.details.serviceCenter}" placeholder="Authorized or independent center"></div>
+        <div class="field"><label class="field__label" for="d-replaced-parts">Replaced parts <span class="optional">(optional)</span></label><input class="input" id="d-replaced-parts" value="${draft.details.replacedParts}" placeholder="Parts replaced previously"></div>
+      </div>
+      <div class="field"><label class="field__label" for="d-replacement">Previous replacement details <span class="optional">(optional)</span></label><input class="input" id="d-replacement" value="${draft.details.replacementDetails}" placeholder="Any previous product replacement or exchange"></div>
     </div>
     ${stepFooter()}`;
 }
@@ -167,6 +180,7 @@ function reviewStepHtml() {
             <div class="detail-row"><dt>Product</dt><dd>${draft.product.name || "—"}</dd></div>
             <div class="detail-row"><dt>Brand / Model</dt><dd>${draft.product.brand || "—"} ${draft.product.model || ""}</dd></div>
             <div class="detail-row"><dt>Serial number</dt><dd>${draft.product.serialNumber || "—"}</dd></div>
+            <div class="detail-row"><dt>Retailer</dt><dd>${draft.product.retailer || "—"}</dd></div>
             <div class="detail-row"><dt>Purchase date</dt><dd>${draft.product.purchaseDate || "—"}</dd></div>
             <div class="detail-row"><dt>Warranty</dt><dd>${draft.product.warrantyProvider || "—"}</dd></div>
           </dl>
@@ -176,6 +190,7 @@ function reviewStepHtml() {
           <p>${draft.details.issueDescription || "—"}</p>
           <div class="detail-row"><dt>Fault date</dt><dd>${draft.details.incidentDate || "—"}</dd></div>
           <div class="detail-row"><dt>Damage type</dt><dd>${draft.details.damageType || "—"}</dd></div>
+          <div class="detail-row"><dt>Repair history</dt><dd>${draft.details.repairHistory || "None provided"}</dd></div>
         </div>
         <div class="card">
           <div class="card__header"><div class="card__title">Documents</div><button class="btn btn-ghost btn-sm" data-goto="2">Edit</button></div>
@@ -285,14 +300,22 @@ function saveProductFields() {
   draft.product.serialNumber = val("p-serial");
   draft.product.purchaseDate = val("p-purchase-date");
   draft.product.purchasePrice = val("p-price");
+  draft.product.retailer = val("p-retailer");
   draft.product.warrantyProvider = val("p-warranty-provider");
+  draft.product.warrantyStart = val("p-warranty-start");
   draft.product.warrantyExpiry = val("p-warranty-expiry");
+  draft.product.warrantyCoverage = val("p-warranty-coverage");
+  draft.product.warrantyExclusions = val("p-warranty-exclusions");
 }
 function saveDetailFields() {
   draft.details.issueDescription = val("d-issue");
   draft.details.incidentDate = val("d-incident-date");
   draft.details.damageType = val("d-damage-type");
   draft.details.notes = val("d-notes");
+  draft.details.repairHistory = val("d-repair-history");
+  draft.details.serviceCenter = val("d-service-center");
+  draft.details.replacedParts = val("d-replaced-parts");
+  draft.details.replacementDetails = val("d-replacement");
 }
 function val(id) { return document.getElementById(id)?.value?.trim() || ""; }
 function setErr(id, msg) { const f = document.getElementById(id).closest(".field"); f.classList.add("has-error"); f.querySelector(".field__error").textContent = msg; }
@@ -338,6 +361,8 @@ async function submitClaim() {
     description: draft.details.issueDescription,
     incidentDate: draft.details.incidentDate,
     warranty: { provider: draft.product.warrantyProvider, active: true, expiry: draft.product.warrantyExpiry },
+    repairHistory: { summary: draft.details.repairHistory, serviceCenter: draft.details.serviceCenter, replacedParts: draft.details.replacedParts },
+    replacementDetails: draft.details.replacementDetails,
   });
 
   for (let i = 0; i < stages.length; i += 1) {
