@@ -25,6 +25,38 @@ export const MOCK_USERS = [
   },
 ];
 
+const REGISTERED_USERS_KEY = "assurex:registered-users";
+
+function registeredUsers() {
+  try {
+    const users = JSON.parse(localStorage.getItem(REGISTERED_USERS_KEY) || "[]");
+    return Array.isArray(users) ? users : [];
+  } catch (err) {
+    return [];
+  }
+}
+
 export function findUserByEmail(email) {
-  return MOCK_USERS.find((u) => u.email.toLowerCase() === String(email).toLowerCase());
+  const normalizedEmail = String(email).toLowerCase();
+  return [...MOCK_USERS, ...registeredUsers()].find((u) => u.email.toLowerCase() === normalizedEmail);
+}
+
+export function registerUser({ name, email, phone, password }) {
+  if (findUserByEmail(email)) throw new Error("An account with this email already exists.");
+  const user = {
+    id: `USR-${Date.now()}`,
+    name,
+    email: email.toLowerCase(),
+    phone,
+    password,
+    role: "user",
+    avatarInitials: name.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase(),
+    joined: new Date().toISOString().slice(0, 10),
+  };
+  try {
+    localStorage.setItem(REGISTERED_USERS_KEY, JSON.stringify([...registeredUsers(), user]));
+  } catch (err) {
+    throw new Error("We couldn't create your account in this browser. Please try again.");
+  }
+  return user;
 }

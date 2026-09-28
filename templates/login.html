@@ -7,8 +7,8 @@
       <div class="auth-card">
         <div class="auth-header">
           <img src="{{ url_for('static', filename='branding/assurex-mark.svg') }}" alt="ASSUREX">
-          <h1 style="font-size:var(--fs-xl)">Welcome back</h1>
-          <p style="margin-top:4px">Sign in to continue to your claims.</p>
+          <h1 id="auth-title" style="font-size:var(--fs-xl)">Welcome back</h1>
+          <p id="auth-subtitle" style="margin-top:4px">Sign in to continue to your claims.</p>
         </div>
 
         <div id="form-alert"></div>
@@ -40,13 +40,55 @@
           <button class="btn btn-primary btn-block" type="submit" id="login-submit">Sign in</button>
         </form>
 
-        <div class="auth-divider">demo accounts</div>
-        <div class="card" style="padding:var(--space-4);font-size:var(--fs-xs);color:var(--text-secondary)">
+        <form id="register-form" novalidate hidden>
+          <div class="field" id="field-register-name">
+            <label class="field__label" for="register-name">Full name</label>
+            <input class="input" type="text" id="register-name" name="name" placeholder="Your full name" autocomplete="name">
+            <div class="field__error"></div>
+          </div>
+
+          <div class="field" id="field-register-email">
+            <label class="field__label" for="register-email">Email address</label>
+            <input class="input" type="email" id="register-email" name="email" placeholder="you@company.com" autocomplete="email">
+            <div class="field__error"></div>
+          </div>
+
+          <div class="field" id="field-register-phone">
+            <label class="field__label" for="register-phone">Phone number</label>
+            <input class="input" type="tel" id="register-phone" name="phone" placeholder="+254 7XX XXX XXX" autocomplete="tel">
+            <div class="field__error"></div>
+          </div>
+
+          <div class="field" id="field-register-password">
+            <label class="field__label" for="register-password">Password</label>
+            <input class="input" type="password" id="register-password" name="password" placeholder="At least 8 characters" autocomplete="new-password">
+            <div class="field__error"></div>
+          </div>
+
+          <div class="field" id="field-register-confirm-password">
+            <label class="field__label" for="register-confirm-password">Confirm password</label>
+            <input class="input" type="password" id="register-confirm-password" name="confirmPassword" placeholder="Repeat your password" autocomplete="new-password">
+            <div class="field__error"></div>
+          </div>
+
+          <label class="checkbox-row" style="margin-bottom:var(--space-5)" id="field-register-terms">
+            <input type="checkbox" id="register-terms">
+            I agree to the ASSUREX terms and privacy policy.
+            <div class="field__error"></div>
+          </label>
+
+          <button class="btn btn-primary btn-block" type="submit" id="register-submit">Create account</button>
+        </form>
+
+        <div class="auth-demo" id="auth-demo">
+          <div class="auth-divider">demo accounts</div>
+          <div class="card" style="padding:var(--space-4);font-size:var(--fs-xs);color:var(--text-secondary)">
           <div><strong>User:</strong> cyrus@assurex.demo / assurex123</div>
           <div><strong>Admin:</strong> admin@assurex.demo / assurex123</div>
+          </div>
         </div>
 
-        <p class="auth-footer-link text-muted">Don't have an account? <a href="#" style="color:var(--text-link);font-weight:600">Contact your administrator</a></p>
+        <p class="auth-footer-link text-muted" id="auth-switch">Don't have an account? <a href="#" id="register-link" style="color:var(--text-link);font-weight:600">Create one</a></p>
       </div>
     </div>
 
