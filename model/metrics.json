@@ -1,0 +1,103 @@
+{
+  "best_model": "RandomForest",
+  "version": "v1",
+  "test_accuracy": 0.9511111111111111,
+  "benchmarks": {
+    "RandomForest": {
+      "accuracy": 0.9511,
+      "f1_score": 0.9512,
+      "confusion_matrix": [
+        [
+          70,
+          2,
+          2
+        ],
+        [
+          1,
+          72,
+          2
+        ],
+        [
+          1,
+          3,
+          72
+        ]
+      ],
+      "classes": [
+        "Invalid Claim",
+        "Manual Review",
+        "Valid Claim"
+      ]
+    },
+    "GradientBoosting": {
+      "accuracy": 0.9422,
+      "f1_score": 0.9422,
+      "confusion_matrix": [
+        [
+          71,
+          2,
+          1
+        ],
+        [
+          4,
+          69,
+          2
+        ],
+        [
+          2,
+          2,
+          72
+        ]
+      ],
+      "classes": [
+        "Invalid Claim",
+        "Manual Review",
+        "Valid Claim"
+      ]
+    },
+    "LogisticRegression": {
+      "accuracy": 0.7689,
+      "f1_score": 0.7709,
+      "confusion_matrix": [
+        [
+          56,
+          1,
+          17
+        ],
+        [
+          7,
+          53,
+          15
+        ],
+        [
+          7,
+          5,
+          64
+        ]
+      ],
+      "classes": [
+        "Invalid Claim",
+        "Manual Review",
+        "Valid Claim"
+      ]
+    }
+  },
+  "features": [
+    "product_age_days",
+    "warranty_months",
+    "warranty_days_left",
+    "days_purchase_to_fault",
+    "previous_repairs",
+    "missing_documents",
+    "product_category",
+    "fault_category",
+    "product_replaced_before",
+    "physical_damage",
+    "water_damage",
+    "receipt_present",
+    "warranty_card_present",
+    "product_image_present",
+    "repair_report_present",
+    "serial_matches"
+  ]
+}
