@@ -1443,9 +1443,9 @@ p { line-height: var(--lh-normal); color: var(--text-secondary); }
 .auth-header { margin-bottom: var(--space-8); }
 .auth-header img { width: 44px; height: 44px; margin-bottom: var(--space-5); }
 .auth-header h1 { font-size: clamp(2rem, 3vw, 2.75rem); }
-.auth-card .input { background: rgba(255, 255, 255, 0.72); border-color: rgba(23, 32, 29, 0.16); }
+.auth-card .input { background: var(--surface-input); border-color: var(--border-medium); color: var(--text-primary); }
 .auth-card .btn-primary { min-height: 48px; letter-spacing: 0.01em; }
-.auth-card .card { background: rgba(255, 255, 255, 0.48); border-color: rgba(23, 32, 29, 0.1); }
+.auth-card .card { background: var(--surface-card); border-color: var(--border-subtle); }
 .auth-divider { display: flex; align-items: center; gap: var(--space-3); margin: var(--space-5) 0; color: var(--text-muted); font-size: var(--fs-xs); }
 .auth-divider::before, .auth-divider::after { content: ""; flex: 1; height: 1px; background: var(--border-subtle); }
 .auth-footer-link { text-align: center; margin-top: var(--space-6); font-size: var(--fs-sm); }
