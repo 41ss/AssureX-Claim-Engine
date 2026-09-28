@@ -423,65 +423,13 @@ p { line-height: var(--lh-normal); color: var(--text-secondary); }
 }
 
 .auth-shell__visual {
-  background: var(--color-deep-forest);
+  background-color: var(--color-deep-forest);
+  background-image: url("/static/images/WhatsApp%20Image%202026-09-27%20at%2015.57.36%20%282%29.jpeg");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
   position: relative;
   overflow: hidden;
-  display: flex;
-  align-items: flex-end;
-  padding: clamp(40px, 6vw, 88px);
-  isolation: isolate;
-}
-
-.auth-shell__visual::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(circle at 20% 20%, rgba(127, 175, 145, 0.2), transparent 34%), linear-gradient(135deg, rgba(20, 92, 74, 0.85), transparent 62%);
-  z-index: -1;
-}
-
-.auth-shell__visual-art {
-  position: absolute;
-  width: min(62vw, 720px);
-  right: -8%;
-  top: 8%;
-  opacity: 0.92;
-  filter: saturate(0.92);
-  transform: rotate(2deg);
-  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.24);
-  border-radius: 28px;
-}
-
-.auth-shell__visual-mark {
-  position: absolute;
-  top: clamp(28px, 5vw, 64px);
-  left: clamp(40px, 6vw, 88px);
-  color: var(--color-gold);
-  font-size: var(--fs-xs);
-  font-weight: 700;
-  letter-spacing: 0.16em;
-}
-
-.auth-shell__visual-mark span {
-  color: var(--text-on-dark-muted);
-  font-weight: 500;
-}
-
-.auth-proof-row {
-  display: flex;
-  gap: var(--space-6);
-  margin-top: var(--space-6);
-  color: var(--text-on-dark-muted);
-  font-size: var(--fs-xs);
-}
-
-.auth-proof-row strong {
-  display: block;
-  color: var(--color-gold);
-  font-family: var(--font-display);
-  font-size: var(--fs-lg);
-  font-weight: 400;
-  line-height: 1;
 }
 
 .auth-card {
@@ -1423,10 +1371,6 @@ p { line-height: var(--lh-normal); color: var(--text-secondary); }
 
 /* ---- from css/pages/login.css ---- */
 /* LOGIN PAGE specific styles */
-.auth-shell__visual-content { color: #fff; max-width: 440px; position: relative; z-index: 1; }
-.auth-shell__visual-content .eyebrow { color: var(--color-sage); }
-.auth-shell__visual-content h2 { color: #fff; font-size: clamp(2.2rem, 4vw, 3.5rem); margin-top: var(--space-3); }
-.auth-shell__visual-content p { color: var(--text-on-dark-muted); margin-top: var(--space-3); }
 .auth-header { margin-bottom: var(--space-8); }
 .auth-header img { width: 44px; height: 44px; margin-bottom: var(--space-5); }
 .auth-header h1 { font-size: clamp(2rem, 3vw, 2.75rem); }
