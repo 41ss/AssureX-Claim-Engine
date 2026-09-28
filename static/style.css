@@ -1340,7 +1340,7 @@ p { line-height: var(--lh-normal); color: var(--text-secondary); }
    ============================================================ */
 
 .hero-banner {
-  background-image: url('/static/images/ChatGPT Image 28 Sept 2026, 20_56_25.png');
+  background-image: url('/static/images/hero-banner.png');
   background-size: cover;
   background-position: center;
   border-radius: var(--radius-lg);
