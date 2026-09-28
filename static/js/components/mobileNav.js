@@ -17,6 +17,7 @@ export function renderMobileHeader() {
         <img src="/static/branding/assurex-mark.svg" alt="">
         <span>ASSUREX</span>
       </div>
+      <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to dark mode" title="Switch to dark mode"></button>
       <button class="btn-icon" style="color:#fff" aria-label="Notifications">${icon("bell", { size: 18 })}</button>
     </header>`;
 }

@@ -19,6 +19,7 @@ export function renderTopbar({ notifications = [] } = {}) {
         </div>
       </div>
       <div class="topbar__actions">
+        <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to dark mode" title="Switch to dark mode"></button>
         <div class="dropdown" id="notif-dropdown">
           <button class="btn-icon bell-btn" id="notif-trigger" aria-label="Notifications">
             ${icon("bell", { size: 18 })}

@@ -5,6 +5,7 @@
  */
 import { icon } from "../components/icons.js";
 import { showToast } from "../components/toast.js";
+import { applyTheme } from "../components/theme.js";
 import { initials } from "../utils/formatters.js";
 
 export function renderSettingsPage(container, session) {
@@ -35,10 +36,9 @@ export function renderSettingsPage(container, session) {
     <div id="tab-appearance" class="card" style="display:none;max-width:520px">
       <div class="field__label" style="margin-bottom:var(--space-3)">Theme</div>
       <div style="display:flex;gap:var(--space-3)">
-        <button class="btn btn-secondary" style="flex:1">Light</button>
-        <button class="btn btn-secondary" style="flex:1" disabled title="Coming soon">Dark</button>
+        <button class="btn btn-secondary" style="flex:1" id="theme-light">Light</button>
+        <button class="btn btn-secondary" style="flex:1" id="theme-dark">Dark</button>
       </div>
-      <p class="text-xs text-muted" style="margin-top:var(--space-3)">Dark mode isn't part of this hackathon build, but the design tokens in static/style.css are already structured to support it later.</p>
     </div>
 
     <div id="tab-notifications" class="card" style="display:none;max-width:520px">
@@ -69,4 +69,6 @@ export function renderSettingsPage(container, session) {
 
   document.getElementById("save-profile")?.addEventListener("click", () => showToast("Profile changes saved.", "success"));
   document.getElementById("save-notifs")?.addEventListener("click", () => showToast("Notification preferences saved.", "success"));
+  document.getElementById("theme-light")?.addEventListener("click", () => applyTheme("light"));
+  document.getElementById("theme-dark")?.addEventListener("click", () => applyTheme("dark"));
 }

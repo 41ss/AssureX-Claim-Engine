@@ -187,6 +187,40 @@ table { border-collapse: collapse; width: 100%; }
   --duration-base: 200ms;
 }
 
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --surface-app: #101916;
+  --surface-card: #18241F;
+  --surface-sidebar: #071A15;
+  --surface-sidebar-active: rgba(255, 255, 255, 0.12);
+  --surface-input: #1E2C26;
+  --surface-inverse: #EAF2EC;
+  --text-primary: #F3F1EC;
+  --text-secondary: #B5C2BA;
+  --text-muted: #8EA198;
+  --text-link: #A4D5B1;
+  --border-subtle: rgba(231, 244, 235, 0.12);
+  --border-medium: rgba(231, 244, 235, 0.22);
+  --status-approved-bg: #173B2A;
+  --status-approved-fg: #A7DDB5;
+  --status-approved-border: #2E6947;
+  --status-rejected-bg: #45251F;
+  --status-rejected-fg: #F0A997;
+  --status-rejected-border: #81473B;
+  --status-review-bg: #2B2945;
+  --status-review-fg: #C9C0F2;
+  --status-review-border: #514A7B;
+  --status-draft-bg: #2D2C27;
+  --status-draft-fg: #CEC9B8;
+  --status-draft-border: #555044;
+  --status-warning-bg: #44391F;
+  --status-warning-fg: #E9CD86;
+  --status-warning-border: #806A31;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.28);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.38);
+}
+
 /* ---- from css/typography.css ---- */
 /* ============================================================
    TYPOGRAPHY
@@ -199,6 +233,12 @@ body {
   font-size: var(--fs-base);
   color: var(--text-primary);
   background: var(--surface-app);
+  transition: background-color var(--duration-base) var(--ease-standard), color var(--duration-base) var(--ease-standard);
+}
+
+.card, .stat-card, .topbar, .search-input, .input, .select, .textarea,
+.table-wrap, .data-table thead th, .auth-shell__form {
+  transition: background-color var(--duration-base) var(--ease-standard), border-color var(--duration-base) var(--ease-standard), color var(--duration-base) var(--ease-standard);
 }
 
 h1, h2, h3, h4 {
@@ -380,6 +420,33 @@ p { line-height: var(--lh-normal); color: var(--text-secondary); }
   gap: var(--space-4);
 }
 
+.theme-toggle {
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-pill);
+  background: var(--surface-card);
+  transition: background-color var(--duration-base) var(--ease-standard), border-color var(--duration-base) var(--ease-standard), color var(--duration-base) var(--ease-standard), transform var(--duration-fast) var(--ease-standard);
+}
+
+.theme-toggle:hover {
+  color: var(--text-primary);
+  background: var(--surface-app);
+  transform: rotate(12deg);
+}
+
+.theme-toggle--floating {
+  position: fixed;
+  top: var(--space-6);
+  right: var(--space-6);
+  z-index: 10;
+}
+
 .topbar__meta {
   text-align: right;
   font-size: var(--fs-xs);
@@ -423,13 +490,21 @@ p { line-height: var(--lh-normal); color: var(--text-secondary); }
 }
 
 .auth-shell__visual {
-  background-color: var(--color-deep-forest);
+  background-color: #162D25;
   background-image: url("/static/images/WhatsApp%20Image%202026-09-27%20at%2015.57.36%20%282%29.jpeg");
   background-position: center;
   background-repeat: no-repeat;
-  background-size: cover;
+  background-size: contain;
   position: relative;
   overflow: hidden;
+}
+
+.auth-shell__visual::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(5, 24, 19, 0.22);
+  pointer-events: none;
 }
 
 .auth-card {

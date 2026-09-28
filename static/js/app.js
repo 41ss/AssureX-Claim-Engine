@@ -15,6 +15,7 @@ import { dashboardService } from "./services/dashboardService.js";
 import { renderSidebar } from "./components/sidebar.js";
 import { renderTopbar, wireTopbarInteractions } from "./components/navbar.js";
 import { renderMobileHeader, renderBottomNav } from "./components/mobileNav.js";
+import { wireThemeToggle } from "./components/theme.js";
 import { state } from "./state.js";
 
 export async function initShell(activePage) {
@@ -43,6 +44,7 @@ export async function initShell(activePage) {
   `;
 
   wireTopbarInteractions();
+  wireThemeToggle();
 
   document.getElementById("logout-trigger")?.addEventListener("click", () => {
     authService.logout();
