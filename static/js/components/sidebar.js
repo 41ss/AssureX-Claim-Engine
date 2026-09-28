@@ -29,7 +29,7 @@ function navItemHtml(item, activeKey) {
 }
 
 export function renderSidebar({ activeKey, session }) {
-  const isAdmin = session?.role === "admin";
+  const isAdmin = session?.role === "admin" || activeKey === "admin-dashboard" || activeKey === "admin-review";
   const items = isAdmin ? ADMIN_NAV : USER_NAV;
   return `
     <aside class="sidebar">
