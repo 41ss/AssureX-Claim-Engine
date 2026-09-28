@@ -23,4 +23,17 @@ Tests performed:
 
 ## 28 Sep 2026 (Day 4)
 
+### 28 Sep 2026 · Victor
+Done: dataset generator built — 10 named scenarios across the 3 classes, reading real values
+from `policies/*.yaml` (no hard-coded warranty numbers); stratified 70/15/15 split
+(1,050/225/225); ~4% per-split label noise; `dataset_statistics.md`, `data_dictionary.md`,
+`scenarios.md` written from the real generated CSVs.
+Problems: an AI-made edit to `report.py` left a stray indent that threw `IndentationError` on
+line 25 — fixed. `pandas.describe(numeric_only=True)` isn't accepted by the installed pandas
+version — replaced with `select_dtypes(include="number")` first.
+Model failures: none yet — no ML model trained (that's step 4).
+Changes made: [Victor: note anything you tweak locally before committing]
+Tests performed: ran `generator.py` (train=1050 val=225 test=225); confirmed 1,500 unique
+`claim_code`s across all three splits with no overlap; checked per-split label distribution.
+
 ## 29 Sep 2026 (Day 5)
