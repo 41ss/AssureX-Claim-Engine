@@ -582,6 +582,8 @@ p { line-height: var(--lh-normal); color: var(--text-secondary); }
   .app-shell { grid-template-columns: 1fr; }
   .sidebar { display: none; }
   .mobile-header { display: flex; }
+  .mobile-search { display: none !important; position: absolute !important; }
+  .mobile-search.is-open { display: flex !important; }
   .bottom-nav { display: block; }
   .content { padding: var(--space-4); padding-bottom: 128px; }
   .topbar { display: none; }
