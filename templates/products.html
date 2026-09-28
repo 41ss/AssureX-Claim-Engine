@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Products & Warranty — ASSUREX Claim Engine{% endblock %}
+{% block body %}
+  <div id="shell-root" class="app-shell" data-page="products"></div>
+{% endblock %}
+{% block scripts %}
+<script type="module">
+  import { initShell, pageContent } from "/static/js/app.js";
+  import { renderProductsPage } from "/static/js/pages/products.js";
+  initShell("products").then((session) => { if (session) renderProductsPage(pageContent()); });
+</script>
+{% endblock %}

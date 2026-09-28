@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Review Queue — ASSUREX Claim Engine{% endblock %}
+{% block body %}
+  <div id="shell-root" class="app-shell" data-page="admin-review"></div>
+{% endblock %}
+{% block scripts %}
+<script type="module">
+  import { initShell, pageContent } from "/static/js/app.js";
+  import { renderAdminReviewPage } from "/static/js/pages/adminReview.js";
+  initShell("admin-review").then((session) => { if (session) renderAdminReviewPage(pageContent()); });
+</script>
+{% endblock %}

@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — ASSUREX Claim Engine{% endblock %}
+{% block body %}
+  <div id="shell-root" class="app-shell" data-page="dashboard"></div>
+{% endblock %}
+{% block scripts %}
+<script type="module">
+  import { initShell, pageContent } from "/static/js/app.js";
+  import { renderDashboardPage } from "/static/js/pages/dashboard.js";
+  initShell("dashboard").then((session) => { if (session) renderDashboardPage(pageContent(), session); });
+</script>
+{% endblock %}

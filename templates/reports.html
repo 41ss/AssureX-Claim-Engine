@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Reports — ASSUREX Claim Engine{% endblock %}
+{% block body %}
+  <div id="shell-root" class="app-shell" data-page="reports"></div>
+{% endblock %}
+{% block scripts %}
+<script type="module">
+  import { initShell, pageContent } from "/static/js/app.js";
+  import { renderReportsPage } from "/static/js/pages/reports.js";
+  initShell("reports").then((session) => { if (session) renderReportsPage(pageContent()); });
+</script>
+{% endblock %}

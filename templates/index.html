@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}ASSUREX Claim Engine{% endblock %}
+{% block body %}
+<noscript>
+  <p style="padding:2rem;font-family:sans-serif">
+    ASSUREX Claim Engine requires JavaScript. Please enable it, or open
+    <a href="/login">/login</a> directly.
+  </p>
+</noscript>
+{% endblock %}
+{% block scripts %}
+<script type="module">
+  import { authService } from "/static/js/services/authService.js";
+  const session = authService.getSession();
+  window.location.replace(session ? (session.role === "admin" ? "/admin-dashboard" : "/dashboard") : "/login");
+</script>
+{% endblock %}
