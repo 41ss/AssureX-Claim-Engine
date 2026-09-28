@@ -13,9 +13,13 @@ export const MOCK_DASHBOARD_STATS = {
 
 export const MOCK_ADMIN_STATS = {
   totalClaims: { value: 1482, deltaPct: 12, direction: "up" },
+  validClaims: 892,
+  invalidClaims: 324,
+  manualReviewClaims: 266,
   pendingReview: { value: 266, deltaPct: 9, direction: "up" },
   modelDisagreements: { value: 41, deltaPct: -4, direction: "down" },
   duplicateAlerts: { value: 17, deltaPct: 2, direction: "up" },
+  averageConfidence: 0.85,
   approvalRate: 0.60,
   avgProcessingDays: 2.4,
 };
