@@ -29,7 +29,7 @@ from `policies/*.yaml` (no hard-coded warranty numbers); stratified 70/15/15 spl
 (1,050/225/225); ~4% per-split label noise; `dataset_statistics.md`, `data_dictionary.md`,
 `scenarios.md` written from the real generated CSVs.
 Model failures: none yet — no ML model trained (that's step 4).
-Changes made: [Victor: note anything you tweak locally before committing]
+Changes made: 
 Tests performed: ran `generator.py` (train=1050 val=225 test=225); confirmed 1,500 unique
 `claim_code`s across all three splits with no overlap; checked per-split label distribution.
 
