@@ -1,0 +1,23 @@
+# Model-comparison and alert thresholds. Owner: Keagan (comparison), Adan (alerts).
+# SRS xxiv: the consistency status is decided by these values, not by code.
+# Confidence difference = |Python top-class confidence - Teachable top-class confidence|
+
+min_confidence: 0.60          # either model's top class below this -> Uncertain Result
+
+consistency:                  # checked in this order; first match wins
+  - status: Model Disagreement
+    when: classes_differ
+  - status: Uncertain Result
+    when: below_min_confidence
+  - status: Strong Match
+    max_difference: 0.10
+    min_top_confidence: 0.80
+  - status: Acceptable Match
+    max_difference: 0.20
+    min_top_confidence: 0.70
+  - status: Weak Match          # same class, anything else
+
+manual_review_on: [Model Disagreement, Uncertain Result, Weak Match]
+
+warranty_expiry_alert_days: 30   # SRS ix: administrators can change this
+failed_login_alert_after: 5      # SRS l

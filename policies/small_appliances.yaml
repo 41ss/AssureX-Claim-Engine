@@ -1,0 +1,41 @@
+# Warranty policy: small kitchen and home appliances. Owner: Keagan.
+# Every field below is required by SRS 1.10.7. Values are starting points
+# for the team to set; the rule engine reads them, nothing is hard-coded.
+product_category: small_appliances
+examples: [blender, kettle, toaster, iron, microwave]
+
+coverage_duration_months: 24
+warranty_start: purchase_date          # purchase_date | delivery_date | registration_date
+grace_period_days: 7                   # claims this many days after expiry are warned, not failed
+claim_reporting_period_days: 30        # fault must be reported within this many days of occurring
+
+covered_faults: [motor_or_drive, electrical, heating_element, controls, manufacturing_defect]
+exclusions: [physical_damage, water_damage, misuse, commercial_use, cosmetic_wear, consumables]
+
+repair_conditions:
+  max_covered_repairs: 2               # a third repair goes to manual review
+  unauthorized_repair_voids_warranty: true
+authorized_service_centre_required: true
+replacement_conditions:
+  replace_after_failed_repairs: 2
+  replacement_restarts_warranty: false
+  max_replacements: 1
+
+mandatory_documents: [receipt, product_image, serial_photo]
+optional_documents: [warranty_card, fault_video, repair_report]
+
+hard_fail_rules:                       # any one of these -> Likely Invalid
+  - warranty_expired_beyond_grace
+  - excluded_damage
+  - unauthorized_repair
+  - max_replacements_exceeded
+warning_rules:                         # shown to the reviewer, do not decide alone
+  - within_grace_period
+  - reported_after_reporting_period
+  - previous_repairs_present
+manual_review_rules:                   # any one of these -> Manual Review Required
+  - serial_number_mismatch
+  - missing_mandatory_document
+  - contradiction_detected
+  - duplicate_claim_or_document
+  - fault_not_in_covered_list
