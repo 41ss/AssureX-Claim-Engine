@@ -1349,7 +1349,7 @@ p { line-height: var(--lh-normal); color: var(--text-secondary); }
    ============================================================ */
 
 .hero-banner {
-  background-image: url('/static/images/hero-banner.png');
+  background-image: url('/static/assets/hero-banner.png');
   background-size: cover;
   background-position: center;
   border-radius: var(--radius-lg);
