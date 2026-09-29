@@ -119,8 +119,7 @@ Tests performed: ran `generator.py` (train=1050 val=225 test=225); confirmed 1,5
   square, so the bottom rows (serial check, missing doc count) would
   have been cut off. Made the new cards square (448x448).
 - `labels.txt` from the export shortens the class names
-  ("Invalid Clai...", "Manual Revie..."), so the code matches each one to
-  the full class name instead of reading it as-is.
+  so the code matches each one to the full class name instead of reading it as-is.
 - The Teachable Machine `.h5` file doesn't load with the Keras that ships
   with TensorFlow 2.21. Loading it through `tf-keras` works.
 
@@ -164,3 +163,74 @@ Tests performed: ran `generator.py` (train=1050 val=225 test=225); confirmed 1,5
 - Connect the frontend to the real backend so claims go through both
   models.
 - _(Team: add anything else for today.)_
+
+### 29 Sep 2026 · Victor (continued)
+
+**Done:**
+- Went through the UI against the SRS and the backend. Product types now
+  match the three policy categories, model predictions show the class
+  (Valid Claim / Invalid Claim / Manual Review) and only the final
+  decision says "Likely ...". Reworked the new claim flow: pick or
+  register a product, fault list from the policy, draft saved before
+  documents, OCR fields to check, preparation check, then submit.
+- Built the backend API in `src/platform/` (accounts, products, claims,
+  documents, review, admin, reports). Login with a signed cookie, salted
+  PBKDF2 passwords, role checks on every route.
+- Uploads get type/size checks, OCR (images and PDFs, `src/ml/ocr.py`)
+  and a SHA-256 hash so the same file on two claims gets flagged.
+- Submitting a claim runs both models and the engine and stores the
+  predictions with their model versions, rule results, audit entries,
+  notifications and admin alerts. PDF claim report, CSV/Excel export,
+  admin settings saved into `config/thresholds.yaml`.
+- Switched the frontend off mock data and deleted the mock files.
+- Teachable Machine run 3 on the new dataset, exported as v2. Python
+  model retrained as v2. v1 files kept so old predictions still point
+  at the model that made them.
+- `train_model.py` now does 5-fold CV, picks the model on validation
+  and scores test once. Added the training notebook, the model
+  comparison report on all 225 test claims and the Python evaluation
+  report with charts.
+- Seed script creates the demo logins and one claim per SRS demo case
+  through the real API. Wrote the README, sample claims folder, and a
+  polish pass on layout (review page, dashboard grid, mobile tables,
+  login demo accounts, dropdown chevrons, background X).
+
+**Problems encountered:**
+- The engine returned "Weak match" but the config says "Weak Match", so
+  weak matches never went to manual review. Fixed.
+- The engine treated every non-blocking rule as manual review, so a late
+  fault report sent 50 valid test claims to review. The policy files
+  already split rules into hard fail / manual review / warning, the
+  engine just wasn't reading those lists. It does now.
+- OCR read the word "photo" as a serial number, and read O for 0 in a
+  couple of serials. Serial/model/invoice numbers now need a digit; the
+  verification step is where the user fixes misreads.
+- The tests were writing into the real `uploads/` folder and overwrote
+  the demo claims' summary cards. Tests now use a temp folder.
+- The first claim took 33 s because TensorFlow loaded on first use.
+  Both models load at start-up now; a claim takes under a second.
+
+**Model failures:**
+- A clean valid claim came out Valid at only 51%. Nearly every training
+  claim had the optional warranty card and repair report, so the models
+  learned "no repair report = manual review". Changed the generator so
+  optional documents vary in every class (repair report only if the
+  product was repaired) and retrained both models.
+- The Python model is still less sure (about 65-70%) on valid claims in
+  the middle of their warranty period, so a lot of those end up as Weak
+  Match and go to review. Left the thresholds as they are for now.
+
+**Changed:**
+- Python v2: CV 94.8% ± 1.9%, validation 94.2%, test 94.2%.
+- Teachable Machine v2: validation 95.6%, test 95.1% (run 3 holdout 95%).
+- Comparison on 225 test claims: models agree on 97.3%, automatic
+  decisions right 94.9% of the time, no invalid claim auto-approved.
+- Rule severity comes from the policy lists; new checks for unauthorised
+  repair, reporting period, fault not covered, duplicates and
+  contradictions in the documents.
+
+**Tested:**
+- `pytest`: 34 of 34 pass (API, security, rules, models, database).
+- Clicked through the whole flow in the browser as customer, reviewer
+  and admin; all pages checked at desktop and phone width.
+- `python database/seed_db.py`: every demo case comes out as expected.

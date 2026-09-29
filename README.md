@@ -276,7 +276,7 @@ Diagrams (architecture, data flow, use case, activity, sequence, decision flow, 
 
 ## Screenshots and test results
 
-Screenshots: `screenshots/` [TO ADD: application screenshots]. Teachable Machine training runs:
+Screenshots of every page: `screenshots/app/` (desktop, plus a few phone views). Teachable Machine training runs:
 `screenshots/teachable/`. Test results: `pytest` (34 passed); model results in `reports/`.
 
 ## Team files
