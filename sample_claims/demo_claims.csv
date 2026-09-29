@@ -1,0 +1,12 @@
+case,product,fault,damage,fault_date,documents,notes,expected_result
+Valid claim,"Galaxy A55, mobile, bought 345 days ago (12-month warranty)",battery,none,4 days ago,"receipt, serial photo, product photo, fault evidence, warranty card",,Likely Valid
+Invalid claim,"Bravia TV, electronics, bought 200 days ago",power_supply,water,4 days ago,all mandatory,,Likely Invalid (liquid damage excluded)
+Manual review,Bravia TV,other (not on covered list),none,3 days ago,all mandatory,,Manual Review Required
+Expired warranty,"iPhone 13, mobile, bought 430 days ago",display,none,5 days ago,all mandatory,,"Likely Invalid (expired, no grace period)"
+Missing documents,"Kettle, appliance, bought 90 days ago",heating_element,none,2 days ago,"receipt, fault evidence only",,Manual Review Required
+Duplicate claim,Galaxy A55 again,battery,none,1 day ago,same receipt file as the valid claim,,Manual Review Required (duplicate)
+Contradictory claim,"XPS 15, electronics, bought 120 days ago",motherboard,none,135 days ago (before purchase),all mandatory,,Manual Review Required (contradiction)
+Serial-number mismatch,"Galaxy Tab S9, bought 100 days ago",charging_port,none,3 days ago,receipt shows serial R52W99XX1,"claim serial R52W99XX1, product R52W31ZT8",Manual Review Required
+Unauthorised repair,"Flip 6 speaker, bought 180 days ago",ports,none,4 days ago,all mandatory,repair 60 days ago at an unauthorised shop,Likely Invalid
+Boundary date,"Blender, appliance, bought 732 days ago (24 months + grace 7 days)",motor_or_drive,none,2 days ago,all mandatory,"warranty ended 2 days ago, inside the grace period","Manual Review Required (grace-period warning, low confidence)"
+Model disagreement,Dataset test claim CLM-00332 recreated,power_supply,none,59 days ago,"receipt, serial photo, fault evidence, repair report",3 authorised repairs,Manual Review Required (Python Valid vs Teachable Manual Review)
