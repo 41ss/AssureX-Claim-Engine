@@ -3,6 +3,7 @@ from datetime import date
 from src.core.contracts import ClaimFeatures
 from src.ml.card import render_card
 from src.teachable.dates import parse_date, warranty_status
+from src.core.config import TEACHABLE_MODEL_VERSION
 from src.teachable.predict import predict_card
 
 
@@ -51,6 +52,6 @@ def test_predict_card_runs_on_rendered_image(tmp_path):
     pred = predict_card(card_path)
 
     assert pred.model_name == "teachable"
-    assert pred.model_version == "v1"
+    assert pred.model_version == TEACHABLE_MODEL_VERSION
     assert pred.label in ("Valid Claim", "Invalid Claim", "Manual Review")
     assert len(pred.probabilities) == 3

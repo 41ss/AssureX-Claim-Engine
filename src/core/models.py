@@ -40,6 +40,8 @@ class Product(Base):
     warranty_months: Mapped[int] = mapped_column(Integer)
 
     warranties: Mapped[list["Warranty"]] = relationship(back_populates="product")
+    repairs: Mapped[list["RepairRecord"]] = relationship(order_by="RepairRecord.repair_date")
+    owner: Mapped["User"] = relationship()
 
 
 class Warranty(Base):
@@ -67,7 +69,10 @@ class Document(Base):
     # serial_photo | diagnostic_report | repair_report
     doc_type: Mapped[str] = mapped_column(String(40))
     file_path: Mapped[str] = mapped_column(String(500))
+    original_name: Mapped[str] = mapped_column(String(255), default="")
+    size_bytes: Mapped[int] = mapped_column(Integer, default=0)
     sha256: Mapped[str] = mapped_column(String(64), index=True)  # duplicate-document check (xxxi)
+    duplicate_of: Mapped[str] = mapped_column(String(40), default="")  # claim code that already used this file
     extracted: Mapped[dict] = mapped_column(JSON, default=dict)  # OCR output (vi)
     verified: Mapped[dict] = mapped_column(JSON, default=dict)   # user-corrected values (vii)
     uploaded_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
@@ -86,17 +91,31 @@ class Claim(Base):
     fault_description: Mapped[str] = mapped_column(Text, default="")
     damage_type: Mapped[str] = mapped_column(String(30), default="none")  # none | physical | water | other
     previous_replacement: Mapped[bool] = mapped_column(default=False)
+    replacement_details: Mapped[str] = mapped_column(Text, default="")
+    notes: Mapped[str] = mapped_column(Text, default="")
     # config.CLAIM_STATUSES: Draft, Submitted, Under Evaluation, Additional Information Required,
     # Manual Review, Approved, Rejected, Closed (SRS xxxviii)
     status: Mapped[str] = mapped_column(String(50), default="Draft")
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     final_decision: Mapped[str] = mapped_column(String(50), default="")  # Likely Valid | Likely Invalid | Manual Review Required
-    decision_reasons: Mapped[list] = mapped_column(JSON, default=list)
-    summary: Mapped[str] = mapped_column(Text, default="")
+    # Result of the last evaluation, kept for filtering and for the claim page:
+    consistency: Mapped[str] = mapped_column(String(40), default="")      # Strong Match ... Uncertain Result
+    top_confidence: Mapped[float] = mapped_column(Float, default=0.0)     # Python model top-class confidence
+    confidence_gap: Mapped[float] = mapped_column(Float, default=0.0)
+    risk_level: Mapped[str] = mapped_column(String(10), default="")       # low | medium | high
+    card_path: Mapped[str] = mapped_column(String(500), default="")
+    decision_detail: Mapped[dict] = mapped_column(JSON, default=dict)     # explanation, factors, contradictions ...
+    summary: Mapped[str] = mapped_column(Text, default="")                # AI-generated claim summary (xxxii)
+    evaluated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    reviewer_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
 
-    predictions: Mapped[list["Prediction"]] = relationship(back_populates="claim")
+    predictions: Mapped[list["Prediction"]] = relationship(back_populates="claim", order_by="Prediction.id")
     rule_results: Mapped[list["RuleResult"]] = relationship(back_populates="claim")
+    documents: Mapped[list["Document"]] = relationship(order_by="Document.id")
+    product: Mapped[Product] = relationship()
+    user: Mapped[User] = relationship(foreign_keys=[user_id])
+    reviews: Mapped[list["ReviewAction"]] = relationship(order_by="ReviewAction.id")
 
 
 class RepairRecord(Base):
@@ -132,6 +151,7 @@ class Prediction(Base):
     label: Mapped[str] = mapped_column(String(50))
     probabilities: Mapped[dict] = mapped_column(JSON)  # {"Valid Claim": 0.8, ...}
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
+    model_version: Mapped["ModelVersion"] = relationship()
 
     claim: Mapped[Claim] = relationship(back_populates="predictions")
 
@@ -156,13 +176,16 @@ class ReviewAction(Base):
     action: Mapped[str] = mapped_column(String(50))  # comment | request_info | approve | reject | override
     comment: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
+    reviewer: Mapped[User] = relationship()
 
 
 class Notification(Base):
     __tablename__ = "notifications"
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    title: Mapped[str] = mapped_column(String(120), default="")
     message: Mapped[str] = mapped_column(Text)
+    claim_code: Mapped[str] = mapped_column(String(40), default="")
     read: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
 

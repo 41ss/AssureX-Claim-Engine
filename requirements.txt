@@ -7,11 +7,16 @@ pyyaml==6.0.*
 pandas==2.2.*
 scikit-learn==1.5.*
 joblib==1.4.*
+matplotlib==3.11.*
 pillow==11.*
 tensorflow==2.21.*
 tf-keras==2.21.*
 pytesseract==0.3.*
+pymupdf==1.28.*
+fpdf2==2.8.*
+itsdangerous==2.2.*
 openpyxl==3.1.*
 tabulate==0.10.*
 pytest==8.*
+ipykernel==7.*          # to re-run notebooks/python_model_training.ipynb
 httpx==0.27.*

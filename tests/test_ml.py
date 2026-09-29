@@ -1,5 +1,6 @@
 import pytest
 from src.core.contracts import ClaimFeatures
+from src.core.config import PYTHON_MODEL_VERSION
 from src.ml.predict import predict
 
 
@@ -29,7 +30,7 @@ def sample_valid_features():
 def test_predict_returns_valid_probabilities(sample_valid_features):
     pred = predict(sample_valid_features)
     assert pred.model_name == "python"
-    assert pred.model_version == "v1"
+    assert pred.model_version == PYTHON_MODEL_VERSION
     assert pred.label in ("Valid Claim", "Invalid Claim", "Manual Review")
     assert len(pred.probabilities) == 3
     # Check probabilities sum to approximately 1.0

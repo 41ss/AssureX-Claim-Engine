@@ -1,25 +1,41 @@
+"""Database tests: tables, relationships and stored passwords (SRS xlvi)."""
+from datetime import date, timedelta
+
 from src.core.db import SessionLocal
-from src.core.models import Claim, Product, User
-from src.core.security import verify_password
+from src.core.models import Claim, Product, User, Warranty
+from src.core.security import hash_password, verify_password
 
 
-def test_seed_database_entities():
+def test_user_product_warranty_claim_are_linked():
     db = SessionLocal()
-    # Check users
-    admin = db.query(User).filter_by(email="admin@assurex.com").first()
-    assert admin is not None
-    assert admin.role == "admin"
-    assert verify_password("Admin123!", admin.password_hash)
+    user = User(email="db-test@test.com", password_hash=hash_password("Password1"), full_name="Db Test", role="customer")
+    db.add(user)
+    db.flush()
+    product = Product(product_code="PRD-DB-1", owner_id=user.id, name="Kettle", category="small_appliances", brand="B",
+                      model_number="K1", serial_number="S-1", purchase_date=date.today() - timedelta(days=10), warranty_months=24)
+    db.add(product)
+    db.flush()
+    db.add(Warranty(product_id=product.id, start_date=product.purchase_date, end_date=product.purchase_date + timedelta(days=730)))
+    claim = Claim(claim_code="CLM-DB-1", user_id=user.id, product_id=product.id, fault_category="electrical")
+    db.add(claim)
+    db.commit()
 
-    # Check products
-    products = db.query(Product).all()
-    assert len(products) >= 2
+    stored = db.query(Claim).filter_by(claim_code="CLM-DB-1").one()
+    assert stored.product.name == "Kettle" and stored.user.email == "db-test@test.com"
+    assert stored.status == "Draft" and len(stored.product.warranties) == 1
+    assert stored.user.password_hash != "Password1" and verify_password("Password1", stored.user.password_hash)
+    db.close()
 
-    # Check claims with relationships
-    claims = db.query(Claim).all()
-    assert len(claims) >= 2
-    claim1 = db.query(Claim).filter_by(claim_code="CLM-2026-0001").first()
-    assert claim1.final_decision == "Likely Valid"
-    assert len(claim1.predictions) == 2
 
+def test_claim_codes_are_unique():
+    import pytest
+    from sqlalchemy.exc import IntegrityError
+    db = SessionLocal()
+    user = db.query(User).first()
+    product = db.query(Product).first()
+    db.add(Claim(claim_code="CLM-DUP-1", user_id=user.id, product_id=product.id))
+    db.add(Claim(claim_code="CLM-DUP-1", user_id=user.id, product_id=product.id))
+    with pytest.raises(IntegrityError):
+        db.commit()
+    db.rollback()
     db.close()

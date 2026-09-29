@@ -26,6 +26,8 @@ class ClaimFeatures:
     repair_report_present: bool
     serial_matches: bool
     missing_documents: int
+    # Rule-engine only (not a model input, not on the card): repairs done at unauthorised centres.
+    unauthorized_repairs: int = 0
 
 
 @dataclass
@@ -44,7 +46,7 @@ class ModelPrediction:
 class RuleFinding:
     rule: str
     passed: bool
-    severity: str = "info"           # info | warning | blocking
+    severity: str = "info"           # info | warning | review | blocking (from the policy file's rule lists)
     message: str = ""
 
 
@@ -61,3 +63,4 @@ class DecisionResult:
     opposing: list[str] = field(default_factory=list)           # factors against it
     contradictions: list[str] = field(default_factory=list)     # xxviii
     evidence_required: list[str] = field(default_factory=list)  # additional evidence still needed
+    explanation: str = ""                                      # plain-language summary of why
