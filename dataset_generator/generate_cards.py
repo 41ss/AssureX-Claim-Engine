@@ -7,7 +7,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 from src.core.config import DATA_DIR
 from src.core.contracts import ClaimFeatures
-from src.ml.card import CARDS_DIR, render_card
+from src.ml.card import CARDS_DIR, EVALUATION_VARIATION, render_card
 
 
 def csv_row_to_features(row: dict) -> ClaimFeatures:
@@ -33,27 +33,35 @@ def csv_row_to_features(row: dict) -> ClaimFeatures:
     )
 
 
-def process_split(split_name: str, csv_path: Path, variations: int):
-    """Renders cards for one CSV split, partitioned by label subfolder."""
-    print(f"Generating cards for {split_name} ({variations} variation(s)/claim)...")
-    count = 0
+def process_split(split_name: str, csv_path: Path, variations: list[int]) -> list[dict]:
+    """Renders cards for one CSV split into <split>/<label>/ and returns their mapping rows."""
+    print(f"Generating cards for {split_name} (variation(s) {variations})...")
+    mapping = []
     with open(csv_path, "r", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
+        for row in csv.DictReader(f):
             features = csv_row_to_features(row)
-            label = row["label"]
-            label_dir = CARDS_DIR / split_name / label
-            for v in range(variations):
-                render_card(features, variation=v, output_dir=label_dir)
-                count += 1
-    print(f"  -> Generated {count} images in {CARDS_DIR / split_name}")
+            label_dir = CARDS_DIR / split_name / row["label"]
+            for v in variations:
+                path = render_card(features, variation=v, output_dir=label_dir)
+                mapping.append({
+                    "claim_code": row["claim_code"], "split": split_name, "label": row["label"],
+                    "variation": v, "image_file": path.relative_to(DATA_DIR).as_posix(),
+                })
+    print(f"  -> Generated {len(mapping)} images in {CARDS_DIR / split_name}")
+    return mapping
 
 
 def main():
-    process_split("train", DATA_DIR / "claims_train.csv", variations=2)  # 1050 * 2 = 2100
-    process_split("val", DATA_DIR / "claims_val.csv", variations=1)      # 225
-    process_split("test", DATA_DIR / "claims_test.csv", variations=1)    # 225
-    print("All Claim Summary Cards rendered successfully.")
+    # Training uses both variations (1050 * 2 = 2100 images). Validation, test and live claims
+    # use one card each, in EVALUATION_VARIATION (chosen on the validation split).
+    mapping = process_split("train", DATA_DIR / "claims_train.csv", [0, 1])
+    mapping += process_split("val", DATA_DIR / "claims_val.csv", [EVALUATION_VARIATION])
+    mapping += process_split("test", DATA_DIR / "claims_test.csv", [EVALUATION_VARIATION])
+    with open(CARDS_DIR / "card_mapping.csv", "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=list(mapping[0]))
+        writer.writeheader()
+        writer.writerows(mapping)
+    print(f"Wrote {len(mapping)} rows to {CARDS_DIR / 'card_mapping.csv'}")
 
 
 if __name__ == "__main__":

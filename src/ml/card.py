@@ -1,114 +1,146 @@
+"""Claim Summary Card renderer (SRS xx).
+
+The card is a square document: one row per claim fact, each with a coloured status chip
+large enough for the Teachable Machine model to see at its 224x224 input size. Chip colours
+describe the claim facts against the category's warranty policy (e.g. repairs over the
+policy limit are red). The card never shows a model prediction, a confidence score or the
+final decision.
+"""
 from pathlib import Path
+
+import yaml
 from PIL import Image, ImageDraw, ImageFont
-from src.core.config import DATA_DIR
+
+from src.core.config import DATA_DIR, POLICIES_DIR
 from src.core.contracts import ClaimFeatures
+
 CARDS_DIR = DATA_DIR / "cards"
+CARD_SIZE = 448          # square, so Teachable Machine's square crop keeps the whole card
+# Validation, test and live claims are rendered in this variation. The Teachable Machine model
+# (trained on both) scored 92.9% on dark validation cards against 81.3% on light ones.
+EVALUATION_VARIATION = 1
+
+# Status fills are the same in every variation; only background, font and spacing change.
+STATUS_COLOURS = {
+    "ok": (22, 163, 74),       # green
+    "warn": (217, 119, 6),     # amber
+    "bad": (220, 38, 38),      # red
+    "info": (37, 99, 235),     # blue, a neutral fact
+}
+
+VARIATIONS = [
+    {"page": (255, 255, 255), "rule": (226, 232, 240), "text": (15, 23, 42),
+     "muted": (100, 116, 139), "font": 14, "margin": 16},
+    {"page": (15, 23, 42), "rule": (51, 65, 85), "text": (241, 245, 249),
+     "muted": (148, 163, 184), "font": 15, "margin": 24},
+]
 
 
-def get_card_theme(variation: int) -> dict:
-    """Returns visual theme styling. Enables multi-variation training."""
-    if variation % 2 == 1:
-        # Dark Slate Theme
-        return {
-            "bg": (15, 23, 42),
-            "card_bg": (30, 41, 59),
-            "border": (71, 85, 105),
-            "text_primary": (248, 250, 252),
-            "text_muted": (148, 163, 184),
-            "accent": (56, 189, 248),
-            "flag_bad": (239, 68, 68),
-            "flag_good": (34, 197, 94),
-        }
-    # Light Modern Theme 
-    return {
-        "bg": (248, 250, 252),
-        "card_bg": (255, 255, 255),
-        "border": (203, 213, 225),
-        "text_primary": (15, 23, 42),
-        "text_muted": (100, 116, 139),
-        "accent": (2, 132, 199),
-        "flag_bad": (220, 38, 38),
-        "flag_good": (22, 163, 74),
-    }
+def load_policy(category: str) -> dict:
+    path = POLICIES_DIR / f"{category}.yaml"
+    if not path.exists():
+        path = POLICIES_DIR / "consumer_electronics.yaml"
+    return yaml.safe_load(path.read_text(encoding="utf-8"))
+
+
+def warranty_tile(f: ClaimFeatures, grace_days: int) -> tuple[str, str, str]:
+    left = f.warranty_days_left
+    if left < -grace_days:
+        return "WARRANTY", f"EXPIRED {-left}d", "bad"
+    if left < 0:
+        return "WARRANTY", f"GRACE {-left}d", "warn"
+    if left <= 30:
+        return "WARRANTY", f"ENDS {left}d", "warn"
+    return "WARRANTY", f"ACTIVE {left}d", "ok"
+
+
+def timing_tile(f: ClaimFeatures) -> tuple[str, str, str]:
+    if f.days_purchase_to_fault < 0:
+        return "FAULT DATE", "BEFORE BUY", "bad"
+    if f.days_purchase_to_fault > f.product_age_days:
+        return "FAULT DATE", "AFTER CLAIM", "bad"
+    return "FAULT DATE", f"DAY {f.days_purchase_to_fault}", "ok"
+
+
+def repairs_tile(f: ClaimFeatures, max_repairs: int) -> tuple[str, str, str]:
+    text = f"{f.previous_repairs} / MAX {max_repairs}"
+    if f.previous_repairs > max_repairs:
+        return "REPAIRS", text, "bad"
+    if f.previous_repairs == max_repairs:
+        return "REPAIRS", text, "warn"
+    return "REPAIRS", text, "ok"
+
+
+def document_tile(name: str, key: str, present: bool, mandatory: list[str]) -> tuple[str, str, str]:
+    if present:
+        return name, "PRESENT", "ok"
+    return name, "MISSING", "bad" if key in mandatory else "warn"
+
+
+def build_rows(f: ClaimFeatures) -> list[tuple[str, str, str]]:
+    """Returns (label, value, status) for each of the 12 rows."""
+    policy = load_policy(f.product_category)
+    mandatory = policy.get("mandatory_documents", [])
+    max_repairs = policy.get("repair_conditions", {}).get("max_covered_repairs", 3)
+
+    if f.physical_damage:
+        damage = ("DAMAGE", "PHYSICAL", "bad")
+    elif f.water_damage:
+        damage = ("DAMAGE", "WATER", "bad")
+    else:
+        damage = ("DAMAGE", "NONE", "ok")
+
+    return [
+        warranty_tile(f, policy.get("grace_period_days", 0)),
+        ("FAULT", f.fault_category.replace("_", " ").upper()[:18], "info"),
+        damage,
+        timing_tile(f),
+        repairs_tile(f, max_repairs),
+        ("REPLACED", "YES" if f.product_replaced_before else "NO",
+         "warn" if f.product_replaced_before else "ok"),
+        ("SERIAL", "MATCH" if f.serial_matches else "MISMATCH", "ok" if f.serial_matches else "bad"),
+        ("MISSING DOCS", str(f.missing_documents), "bad" if f.missing_documents else "ok"),
+        document_tile("RECEIPT", "receipt", f.receipt_present, mandatory),
+        document_tile("WARRANTY CARD", "warranty_card", f.warranty_card_present, mandatory),
+        document_tile("PRODUCT IMAGE", "product_image", f.product_image_present, mandatory),
+        document_tile("REPAIR REPORT", "repair_report", f.repair_report_present, mandatory),
+    ]
 
 
 def render_card(features: ClaimFeatures, variation: int = 0, output_dir: Path | None = None) -> Path:
-    """Renders one visual Claim Summary Card and saves to disk as PNG."""
+    """Draws one Claim Summary Card and saves it as <claim_code>_v<variation>.png."""
     target_dir = output_dir or (CARDS_DIR / "tmp")
     target_dir.mkdir(parents=True, exist_ok=True)
     out_path = target_dir / f"{features.claim_code}_v{variation}.png"
-    # Canvas Dimensions
-    width, height = 520, 680
-    theme = get_card_theme(variation)
-    img = Image.new("RGB", (width, height), theme["bg"])
+
+    style = VARIATIONS[variation % len(VARIATIONS)]
+    m = style["margin"]
+    title_font = ImageFont.load_default(size=style["font"] + 2)
+    small_font = ImageFont.load_default(size=style["font"] - 3)
+    font = ImageFont.load_default(size=style["font"])
+
+    img = Image.new("RGB", (CARD_SIZE, CARD_SIZE), style["page"])
     draw = ImageDraw.Draw(img)
-    font = ImageFont.load_default()
-    # Outer Card Container
-    draw.rounded_rectangle([(16, 16), (width - 16, height - 16)], radius=12, fill=theme["card_bg"], outline=theme["border"], width=2)
-    # Header Banner
-    draw.rectangle([(16, 16), (width - 16, 75)], fill=theme["bg"])
-    draw.line([(16, 75), (width - 16, 75)], fill=theme["border"], width=2)
-    draw.text((32, 28), "ASSUREX CLAIM SUMMARY CARD", font=font, fill=theme["accent"])
-    draw.text((32, 48), f"CLAIM ID: {features.claim_code}  |  CAT: {features.product_category.upper()}", font=font, fill=theme["text_primary"])
-    #  Product & Warranty
-    y = 95
-    draw.text((32, y), "-- PRODUCT & WARRANTY STATUS --", font=font, fill=theme["accent"])
-    y += 24
-    draw.text((36, y), f"Product Age:          {features.product_age_days} days", font=font, fill=theme["text_primary"])
-    y += 20
-    draw.text((36, y), f"Warranty Duration:    {features.warranty_months} months", font=font, fill=theme["text_primary"])
-    y += 20
-    status_str = f"EXPIRED ({abs(features.warranty_days_left)}d ago)" if features.warranty_days_left < 0 else f"ACTIVE ({features.warranty_days_left}d left)"
-    status_color = theme["flag_bad"] if features.warranty_days_left < 0 else theme["flag_good"]
-    draw.text((36, y), f"Warranty Window:      {status_str}", font=font, fill=status_color)
-    # Fault & Damage
-    y += 35
-    draw.line([(32, y), (width - 32, y)], fill=theme["border"], width=1)
-    y += 15
-    draw.text((32, y), "-- REPORTED FAULT & DAMAGE --", font=font, fill=theme["accent"])
-    y += 24
-    draw.text((36, y), f"Reported Fault:       {features.fault_category}", font=font, fill=theme["text_primary"])
-    y += 20
-    draw.text((36, y), f"Purchase to Fault:    {features.days_purchase_to_fault} days", font=font, fill=theme["text_primary"])
-    y += 20
-    phys_color = theme["flag_bad"] if features.physical_damage else theme["flag_good"]
-    water_color = theme["flag_bad"] if features.water_damage else theme["flag_good"]
-    draw.text((36, y), f"Physical Damage:      {'YES' if features.physical_damage else 'NO'}", font=font, fill=phys_color)
-    y += 20
-    draw.text((36, y), f"Liquid/Water Damage:  {'YES' if features.water_damage else 'NO'}", font=font, fill=water_color)
-    #  Repair History
-    y += 35
-    draw.line([(32, y), (width - 32, y)], fill=theme["border"], width=1)
-    y += 15
-    draw.text((32, y), "-- REPAIR & REPLACEMENT HISTORY --", font=font, fill=theme["accent"])
-    y += 24
-    draw.text((36, y), f"Prior Repair Count:   {features.previous_repairs}", font=font, fill=theme["text_primary"])
-    y += 20
-    draw.text((36, y), f"Replaced Previously:  {'YES' if features.product_replaced_before else 'NO'}", font=font, fill=theme["text_primary"])
-    # Evidence & Document Checklist
-    y += 35
-    draw.line([(32, y), (width - 32, y)], fill=theme["border"], width=1)
-    y += 15
-    draw.text((32, y), "-- EVIDENCE & VERIFICATION --", font=font, fill=theme["accent"])
-    y += 24
-    docs = [
-        ("Purchase Receipt", features.receipt_present),
-        ("Warranty Card", features.warranty_card_present),
-        ("Product Image", features.product_image_present),
-        ("Repair Report", features.repair_report_present),
-    ]
-    for doc_name, present in docs:
-        color = theme["flag_good"] if present else theme["flag_bad"]
-        symbol = "[OK] PRESENT" if present else "[X]  MISSING"
-        draw.text((36, y), f"{doc_name:<20}: {symbol}", font=font, fill=color)
-        y += 18
-    # Integrity Verification
-    y += 10
-    serial_color = theme["flag_good"] if features.serial_matches else theme["flag_bad"]
-    serial_str = "MATCHED (VERIFIED)" if features.serial_matches else "MISMATCH / UNCONFIRMED"
-    draw.text((36, y), f"Serial Number Check : {serial_str}", font=font, fill=serial_color)
-    y += 20
-    docs_color = theme["flag_good"] if features.missing_documents == 0 else theme["flag_bad"]
-    draw.text((36, y), f"Missing Doc Count   : {features.missing_documents}", font=font, fill=docs_color)
+
+    draw.text((m, m - 4), "CLAIM SUMMARY CARD", font=title_font, fill=style["text"])
+    draw.text((m, m + style["font"] + 2),
+              f"{features.claim_code}  |  {features.product_category.replace('_', ' ').title()}"
+              f"  |  age {features.product_age_days}d  |  {features.warranty_months}-month warranty",
+              font=small_font, fill=style["muted"])
+    top = m + 2 * style["font"] + 12
+    draw.line([(m, top - 4), (CARD_SIZE - m, top - 4)], fill=style["text"], width=2)
+
+    rows = build_rows(features)
+    row_h = (CARD_SIZE - top - m) / len(rows)
+    chip_w = 200
+    for i, (label, value, status) in enumerate(rows):
+        y0 = top + i * row_h
+        if i:
+            draw.line([(m, y0), (CARD_SIZE - m, y0)], fill=style["rule"], width=1)
+        draw.text((m + 2, y0 + (row_h - style["font"]) / 2 - 1), label.title(), font=font, fill=style["text"])
+        x1 = CARD_SIZE - m
+        draw.rounded_rectangle([x1 - chip_w, y0 + 3, x1, y0 + row_h - 3], radius=6, fill=STATUS_COLOURS[status])
+        draw.text((x1 - chip_w + 10, y0 + (row_h - style["font"]) / 2 - 1), value, font=font, fill=(255, 255, 255))
+
     img.save(out_path, format="PNG")
     return out_path

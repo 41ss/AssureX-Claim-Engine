@@ -31,8 +31,8 @@ def test_render_card_outputs_valid_png(tmp_path):
     assert p1.exists()
 
     with Image.open(p0) as img:
-        assert img.size == (520, 680)
+        assert img.size == (448, 448)
         assert img.format == "PNG"
 
     with Image.open(p1) as img:
-        assert img.size == (520, 680)
+        assert img.size == (448, 448)
