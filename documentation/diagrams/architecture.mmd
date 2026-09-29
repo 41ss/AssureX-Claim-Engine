@@ -1,0 +1,33 @@
+flowchart TB
+    subgraph Client["Web browser"]
+        UI["Pages: templates/ + static/<br/>login, dashboard, products, new claim,<br/>claim details, review queue, admin, reports"]
+    end
+    subgraph Server["FastAPI application (src/)"]
+        R["Routes<br/>src/platform"]
+        DOC["Document upload + OCR<br/>src/ml/ocr.py"]
+        FE["Pre-processing<br/>src/ml/features.py"]
+        PY["Python classifier<br/>src/ml/predict.py<br/>RandomForest, model/python_v1.joblib"]
+        CARD["Claim Summary Card<br/>src/ml/card.py"]
+        TM["Teachable Machine classifier<br/>src/teachable/predict.py<br/>model/teachable_v1"]
+        ENG["Decision engine<br/>src/decision/engine.py"]
+    end
+    subgraph Config["Configuration"]
+        POL["policies/*.yaml<br/>one per product category"]
+        THR["config/thresholds.yaml"]
+    end
+    DB[("SQLite database<br/>assurex.db")]
+    UP[("uploads/")]
+
+    UI <-->|HTTP| R
+    R --> DOC --> UP
+    R --> FE
+    FE --> PY
+    FE --> CARD --> TM
+    PY --> ENG
+    TM --> ENG
+    FE --> ENG
+    POL --> ENG
+    THR --> ENG
+    POL --> CARD
+    R <--> DB
+    ENG -->|decision, rule results| R

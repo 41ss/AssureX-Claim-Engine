@@ -1,0 +1,23 @@
+flowchart TD
+    S([Both model predictions + claim features]) --> C1{Classes match?}
+    C1 -- No --> MD[Model Disagreement]
+    C1 -- Yes --> C2{Either top confidence<br/>below min_confidence 0.60?}
+    C2 -- Yes --> UR[Uncertain Result]
+    C2 -- No --> C3{"Difference <= 0.10 and<br/>both >= 0.80?"}
+    C3 -- Yes --> SM[Strong Match]
+    C3 -- No --> C4{"Difference <= 0.20 and<br/>both >= 0.70?"}
+    C4 -- Yes --> AM[Acceptable Match]
+    C4 -- No --> WM[Weak Match]
+
+    MD & UR & SM & AM & WM --> R1{Any hard-fail rule failed?<br/>expired beyond grace, excluded damage,<br/>too many repairs, prior replacement}
+    R1 -- Yes --> LI[Likely Invalid]
+    R1 -- No --> R2{Contradiction found?<br/>fault before purchase, serial mismatch}
+    R2 -- Yes --> MR[Manual Review Required]
+    R2 -- No --> R3{Warning rule failed?<br/>missing mandatory documents}
+    R3 -- Yes --> MR
+    R3 -- No --> R4{Consistency is Disagreement,<br/>Uncertain or Weak, or either<br/>model says Manual Review?}
+    R4 -- Yes --> MR
+    R4 -- No --> R5{Both models say?}
+    R5 -- Invalid Claim --> LI
+    R5 -- Valid Claim --> LV[Likely Valid]
+    R5 -- Other --> MR

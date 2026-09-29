@@ -1,0 +1,105 @@
+erDiagram
+    USERS ||--o{ PRODUCTS : owns
+    USERS ||--o{ CLAIMS : submits
+    USERS ||--o{ DOCUMENTS : uploads
+    USERS ||--o{ NOTIFICATIONS : receives
+    USERS ||--o{ REVIEW_ACTIONS : "reviews as"
+    USERS ||--o{ AUDIT_LOG : "acts in"
+    PRODUCTS ||--o{ WARRANTIES : has
+    PRODUCTS ||--o{ REPAIR_RECORDS : has
+    PRODUCTS ||--o{ CLAIMS : "claimed in"
+    PRODUCTS ||--o{ DOCUMENTS : "filed under"
+    CLAIMS ||--o{ DOCUMENTS : "supported by"
+    CLAIMS ||--o{ PREDICTIONS : gets
+    CLAIMS ||--o{ RULE_RESULTS : gets
+    CLAIMS ||--o{ REVIEW_ACTIONS : gets
+    MODEL_VERSIONS ||--o{ PREDICTIONS : made
+
+    USERS {
+        int id PK
+        string email
+        string password_hash
+        string role
+        int failed_logins
+    }
+    PRODUCTS {
+        int id PK
+        string product_code
+        int owner_id FK
+        string category
+        string serial_number
+        date purchase_date
+        int warranty_months
+    }
+    WARRANTIES {
+        int id PK
+        int product_id FK
+        string kind
+        date start_date
+        date end_date
+    }
+    DOCUMENTS {
+        int id PK
+        int claim_id FK
+        string doc_type
+        string sha256
+        json extracted
+        json verified
+    }
+    CLAIMS {
+        int id PK
+        string claim_code
+        int product_id FK
+        date fault_date
+        string status
+        string final_decision
+    }
+    REPAIR_RECORDS {
+        int id PK
+        int product_id FK
+        date repair_date
+        bool authorized_center
+    }
+    MODEL_VERSIONS {
+        int id PK
+        string model_name
+        string version
+        string file_path
+    }
+    PREDICTIONS {
+        int id PK
+        int claim_id FK
+        int model_version_id FK
+        string label
+        json probabilities
+    }
+    RULE_RESULTS {
+        int id PK
+        int claim_id FK
+        string rule
+        bool passed
+        string severity
+    }
+    REVIEW_ACTIONS {
+        int id PK
+        int claim_id FK
+        int reviewer_id FK
+        string action
+        string comment
+    }
+    NOTIFICATIONS {
+        int id PK
+        int user_id FK
+        string message
+    }
+    ALERTS {
+        int id PK
+        string kind
+        bool resolved
+    }
+    AUDIT_LOG {
+        int id PK
+        int user_id FK
+        string action
+        json detail
+    }

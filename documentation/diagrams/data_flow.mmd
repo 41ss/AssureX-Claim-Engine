@@ -1,0 +1,36 @@
+flowchart LR
+    CU["Customer /<br/>service-centre employee"]
+    RV["Claim reviewer"]
+    AD["Administrator"]
+
+    P1(("1.0<br/>Manage<br/>accounts"))
+    P2(("2.0<br/>Register product<br/>and warranty"))
+    P3(("3.0<br/>Upload and<br/>extract documents"))
+    P4(("4.0<br/>Evaluate<br/>claim"))
+    P5(("5.0<br/>Review<br/>claim"))
+    P6(("6.0<br/>Reports, alerts<br/>and export"))
+
+    D1[("D1 Users")]
+    D2[("D2 Products and warranties")]
+    D3[("D3 Documents and hashes")]
+    D4[("D4 Claims, predictions, rule results")]
+    D5[("D5 Audit log and alerts")]
+    D6[("D6 Policies and thresholds")]
+
+    CU -->|registration, login| P1 --> D1
+    CU -->|product details| P2 --> D2
+    CU -->|receipts, photos, reports| P3 --> D3
+    P3 -->|extracted fields| CU
+    CU -->|claim details| P4
+    D2 --> P4
+    D3 --> P4
+    D6 --> P4
+    P4 -->|decision, explanation| D4
+    P4 -->|status, decision| CU
+    D4 --> P5
+    RV -->|approve, reject, request info, override| P5 --> D4
+    D4 --> P6
+    D5 --> P6
+    P6 -->|dashboard, CSV export, alerts| AD
+    P6 -->|claim report| CU
+    P1 & P3 & P4 & P5 --> D5

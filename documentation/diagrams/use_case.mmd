@@ -1,0 +1,45 @@
+flowchart TB
+    AD(["Administrator"])
+    RV(["Claim reviewer"])
+    CU(["Customer /<br/>service-centre employee"])
+
+    subgraph SYS["AssureX Claim Engine"]
+        direction TB
+        subgraph UC1["Customer and service-centre use cases"]
+            direction TB
+            C1["Register / log in"]
+            C2["Manage profile"]
+            C3["Register product and warranty"]
+            C4["Upload receipts and evidence"]
+            C5["Verify extracted data"]
+            C6["Create and submit claim"]
+            C7["Track claim status"]
+            C8["Download claim report"]
+            C9["Receive notifications and expiry alerts"]
+        end
+        subgraph UC2["Reviewer use cases"]
+            direction TB
+            R1["Log in"]
+            R2["Open manual-review queue"]
+            R3["Approve / reject / request info"]
+            R4["Override decision with comment"]
+            R5["View audit history of a claim"]
+        end
+        subgraph UC3["Administrator use cases"]
+            direction TB
+            A1["Log in"]
+            A2["View admin dashboard and analytics"]
+            A3["Search and filter claims"]
+            A4["Configure alert days and thresholds"]
+            A5["Export claims to CSV / Excel"]
+            A6["View monitoring alerts"]
+        end
+    end
+
+    CU --> UC1
+    RV --> UC2
+    AD --> UC3
+
+    C1 ~~~ C2 ~~~ C3 ~~~ C4 ~~~ C5 ~~~ C6 ~~~ C7 ~~~ C8 ~~~ C9
+    R1 ~~~ R2 ~~~ R3 ~~~ R4 ~~~ R5
+    A1 ~~~ A2 ~~~ A3 ~~~ A4 ~~~ A5 ~~~ A6

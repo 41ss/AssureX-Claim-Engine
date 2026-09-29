@@ -1,0 +1,35 @@
+sequenceDiagram
+    actor U as User
+    participant W as Web UI
+    participant A as FastAPI routes
+    participant O as OCR (ml/ocr)
+    participant F as Features (ml/features)
+    participant P as Python model
+    participant C as Card renderer
+    participant T as Teachable Machine
+    participant E as Decision engine
+    participant D as Database
+
+    U->>W: Upload receipt
+    W->>A: POST document
+    A->>A: check type, size, SHA-256 hash
+    A->>O: extract_fields(file)
+    O-->>A: invoice no., date, serial, amount
+    A->>D: save document + extracted fields
+    A-->>W: extracted fields to verify
+    U->>W: correct fields, submit claim
+    W->>A: POST claim
+    A->>D: load product, documents, repairs
+    A->>F: build_features(claim, product, documents, repairs)
+    F-->>A: ClaimFeatures
+    A->>P: predict(features)
+    P-->>A: class + 3 probabilities, model v1
+    A->>C: render_card(features)
+    C-->>A: card image
+    A->>T: predict_card(image)
+    T-->>A: class + 3 probabilities, model v1
+    A->>E: decide(features, python, teachable)
+    E-->>A: decision, consistency, rules, explanation
+    A->>D: save predictions, rule results, status, audit entry
+    A-->>W: result page
+    W-->>U: decision and explanation

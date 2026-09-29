@@ -1,0 +1,26 @@
+flowchart TD
+    A([Start]) --> B[Log in]
+    B --> C{Product registered?}
+    C -- No --> D[Register product and warranty] --> E
+    C -- Yes --> E[Create claim: fault date, description, damage type]
+    E --> F[Upload receipt, warranty card, photos, repair report]
+    F --> G{File type and size valid?}
+    G -- No --> F1[Show error, ask for another file] --> F
+    G -- Yes --> H[OCR extracts invoice no., date, serial, amount]
+    H --> I[User reviews and corrects extracted fields]
+    I --> J[Claim preparation check:<br/>missing fields, documents, deadlines, contradictions]
+    J --> K{User submits?}
+    K -- No --> K1[Save as Draft] --> Z([End])
+    K -- Yes --> L[Pre-process claim into features]
+    L --> M1[Python model prediction]
+    L --> M2[Render Claim Summary Card<br/>then Teachable Machine prediction]
+    M1 --> N[Compare classes and confidence difference]
+    M2 --> N
+    N --> O[Warranty rules, contradictions,<br/>missing documents, duplicates]
+    O --> P{Final decision}
+    P -- Likely Valid --> Q1[Status: Approved]
+    P -- Likely Invalid --> Q2[Status: Rejected]
+    P -- Manual Review Required --> Q3[Status: Manual Review]
+    Q3 --> R[Reviewer approves, rejects,<br/>requests info or overrides]
+    Q1 & Q2 & R --> S[Notify user, write audit entry]
+    S --> Z
