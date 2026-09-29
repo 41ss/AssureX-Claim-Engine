@@ -13,7 +13,7 @@ export function statCard({ label, value, deltaPct, direction, iconName, tone = "
       <div>
         <div class="stat-card__label">${label}</div>
         <div class="stat-card__value font-numeric">${formatNumber(value)}</div>
-        <div class="stat-card__delta ${deltaCls}">${sign}${deltaPct}% vs last 7 days</div>
+        ${deltaPct === undefined ? "" : `<div class="stat-card__delta ${deltaCls}">${sign}${deltaPct}% vs last 7 days</div>`}
       </div>
     </div>`;
 }

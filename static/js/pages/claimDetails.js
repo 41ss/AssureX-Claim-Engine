@@ -9,9 +9,13 @@ import { icon } from "../components/icons.js";
 import { statusBadge } from "../components/statusBadge.js";
 import { skeletonLines } from "../components/loadingState.js";
 import { errorState, friendlyError } from "../components/errorState.js";
-import { formatDate, formatPercent, formatFileSize } from "../utils/formatters.js";
+import { formatDate, formatFileSize } from "../utils/formatters.js";
 import { getQueryParam } from "../utils/helpers.js";
 import { showToast } from "../components/toast.js";
+import { modelComparisonCard, rulesCard, summaryCardImage } from "../components/analysisBlocks.js";
+import { mountUploader } from "../components/fileUpload.js";
+import { escapeHtml } from "../utils/helpers.js";
+import { categoryLabel, docTypeLabel } from "../utils/claimOptions.js";
 
 export async function renderClaimDetailsPage(container) {
   const id = getQueryParam("id");
@@ -43,7 +47,7 @@ function buildPage(claim) {
         <div style="display:flex;align-items:center;gap:var(--space-3)">
           <h2>${claim.id}</h2>${statusBadge(claim.status)}
         </div>
-        <p class="text-sm">${claim.product.name} — ${claim.faultType} · submitted ${formatDate(claim.submittedAt)}</p>
+        <p class="text-sm">${escapeHtml(claim.product.name)} — ${escapeHtml(claim.faultType)} · ${escapeHtml(claim.stage)}${claim.submittedAt ? ` · submitted ${formatDate(claim.submittedAt)}` : ""}</p>
       </div>
       <div class="page-header__actions">
         <button class="btn btn-secondary" id="download-report">${icon("download", { size: 15 })}Download Report</button>
@@ -58,18 +62,21 @@ function buildPage(claim) {
 
     <div id="tab-overview" class="claim-detail-grid">
       <div>
-        ${summaryCard(claim)}
+        ${resubmitBlock(claim)}
         <div class="card" style="margin-bottom:var(--space-4)">
           <div class="card__header"><div class="card__title">Claim Information</div></div>
           <dl>
-            <div class="detail-row"><dt>Product</dt><dd>${claim.product.name}</dd></div>
-            <div class="detail-row"><dt>Brand / Model</dt><dd>${claim.product.brand} ${claim.product.model}</dd></div>
-            <div class="detail-row"><dt>Serial number</dt><dd>${claim.product.serialNumber}</dd></div>
-            <div class="detail-row"><dt>Fault type</dt><dd>${claim.faultType}</dd></div>
-            <div class="detail-row"><dt>Incident date</dt><dd>${formatDate(claim.incidentDate)}</dd></div>
-            <div class="detail-row"><dt>Warranty</dt><dd>${claim.warranty.provider} — ${claim.warranty.active ? statusBadge("active") : statusBadge("expired")}</dd></div>
+            <div class="detail-row"><dt>Product</dt><dd>${escapeHtml(claim.product.name)} (${claim.product.id})</dd></div>
+            <div class="detail-row"><dt>Category</dt><dd>${categoryLabel(claim.product.category)}</dd></div>
+            <div class="detail-row"><dt>Brand / Model</dt><dd>${escapeHtml(claim.product.brand)} ${escapeHtml(claim.product.model)}</dd></div>
+            <div class="detail-row"><dt>Serial number</dt><dd>${escapeHtml(claim.product.serialNumber)}${claim.serialNumber && claim.serialNumber !== claim.product.serialNumber ? ` <span class="badge badge--warning">claim says ${escapeHtml(claim.serialNumber)}</span>` : ""}</dd></div>
+            <div class="detail-row"><dt>Fault</dt><dd>${escapeHtml(claim.faultType)}</dd></div>
+            <div class="detail-row"><dt>Damage</dt><dd>${escapeHtml(claim.damageLabel || "—")}</dd></div>
+            <div class="detail-row"><dt>Fault date</dt><dd>${formatDate(claim.incidentDate)}</dd></div>
+            <div class="detail-row"><dt>Previous repairs</dt><dd>${claim.repairCount ?? 0}${claim.unauthorizedRepairs ? ` (${claim.unauthorizedRepairs} unauthorised)` : ""}</dd></div>
+            <div class="detail-row"><dt>Warranty</dt><dd class="detail-row__stack">${statusBadge(claim.warranty.status || (claim.warranty.active ? "active" : "expired"))}<span>${escapeHtml(claim.warranty.provider)} · until ${formatDate(claim.warranty.expiry)}</span></dd></div>
           </dl>
-          <p style="margin-top:var(--space-4)">${claim.description}</p>
+          <p style="margin-top:var(--space-4)">${escapeHtml(claim.description)}</p>
         </div>
 
         ${claim.decision.contradictions.length ? contradictionsBlock(claim) : ""}
@@ -91,21 +98,18 @@ function buildPage(claim) {
 
       <div>
         <div class="card" style="margin-bottom:var(--space-4)">
-          <div class="card__header"><div class="card__title">${icon("sparkles", { size: 16 })} AI Analysis</div></div>
-          ${modelCard(claim.analysis.modelOne)}
-          <div class="model-vs">vs</div>
-          ${modelCard(claim.analysis.modelTwo)}
-          <div class="detail-row" style="margin-top:var(--space-3)"><dt>Consistency</dt><dd>${claim.analysis.consistency}</dd></div>
-          <div class="detail-row"><dt>Confidence difference</dt><dd>${formatPercent(claim.analysis.confidenceDifference)}</dd></div>
-        </div>
-
-        <div class="card">
           <div class="card__header"><div class="card__title">Decision</div></div>
-          <h3 style="margin-bottom:var(--space-2)">${claim.decision.result}</h3>
-          <p style="margin-bottom:var(--space-4)">${claim.decision.explanation}</p>
-          ${claim.decision.supportingFactors.map((f) => `<div class="check-item is-done">${icon("check-circle-2", { size: 16 })}${f}</div>`).join("")}
-          ${claim.decision.opposingFactors.map((f) => `<div class="check-item is-pending">${icon("x-circle", { size: 16 })}${f}</div>`).join("")}
+          <h3 style="margin-bottom:var(--space-2)">${escapeHtml(claim.decision.result || "Not evaluated yet")}</h3>
+          <p style="margin-bottom:var(--space-4)">${escapeHtml(claim.decision.explanation || "")}</p>
+          ${claim.decision.supportingFactors.length ? `<div class="card__subtitle">Supporting the decision</div>` : ""}
+          ${claim.decision.supportingFactors.map((f) => `<div class="check-item is-done">${icon("check-circle-2", { size: 16 })}${escapeHtml(f)}</div>`).join("")}
+          ${claim.decision.opposingFactors.length ? `<div class="card__subtitle" style="margin-top:var(--space-2)">Against the decision</div>` : ""}
+          ${claim.decision.opposingFactors.map((f) => `<div class="check-item is-pending">${icon("x-circle", { size: 16 })}${escapeHtml(f)}</div>`).join("")}
+          ${claim.reviews?.length ? `<div class="card__subtitle" style="margin-top:var(--space-3)">Reviewer notes</div>${claim.reviews.map((r) => `<p class="text-sm"><strong>${escapeHtml(r.reviewer)}</strong> · ${escapeHtml(r.action)} · ${formatDate(r.timestamp)}${r.comment ? `<br>${escapeHtml(r.comment)}` : ""}</p>`).join("")}` : ""}
         </div>
+        ${modelComparisonCard(claim.analysis)}
+        ${rulesCard(claim.decision)}
+        ${summaryCardImage(claim.analysis)}
       </div>
     </div>
 
@@ -115,9 +119,10 @@ function buildPage(claim) {
         ? `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:var(--space-3)">
             ${claim.documents.map((d) => `
               <div>
-                <div class="evidence-thumb">${icon("file-text", { size: 24 })}</div>
-                <div class="text-xs" style="margin-top:6px;font-weight:600">${d.name}</div>
-                <div class="text-xs text-muted">${d.type} · ${formatFileSize(d.size)}</div>
+                <a class="evidence-thumb" href="${claimService.documentUrl(claim.id, d.id)}" target="_blank" rel="noopener">${icon("file-text", { size: 24 })}</a>
+                <div class="text-xs" style="margin-top:6px;font-weight:600">${escapeHtml(d.name)}</div>
+                <div class="text-xs text-muted">${docTypeLabel(d.type)} · ${formatFileSize(d.size)}</div>
+                ${d.duplicateOf ? `<div class="text-xs" style="color:var(--status-warning-fg)">Also used on ${escapeHtml(d.duplicateOf)}</div>` : ""}
               </div>`).join("")}
           </div>`
         : `<p>No documents uploaded.</p>`}
@@ -137,41 +142,6 @@ function buildPage(claim) {
   `;
 }
 
-function summaryCard(claim) {
-  const purchaseDate = claim.product.purchaseDate || claim.warranty.start || claim.incidentDate;
-  const productAge = purchaseDate ? Math.max(0, Math.floor((Date.now() - new Date(purchaseDate).getTime()) / (1000 * 60 * 60 * 24 * 365.25))) : "—";
-  const warrantyStart = claim.warranty.start || "—";
-  const warrantyExpiry = claim.warranty.expiry || "—";
-  const documents = claim.documents || [];
-  const missing = claim.decision.missingDocuments || [];
-  return `
-    <div class="card claim-summary-card" style="margin-bottom:var(--space-4)">
-      <div class="card__header"><div><div class="card__title">Claim Summary Card</div><div class="card__subtitle">Standardized claim information for independent image classification.</div></div><span class="badge badge--draft">No model result</span></div>
-      <div class="claim-summary-card__grid">
-        <div><span>Product</span><strong>${claim.product.name}</strong></div>
-        <div><span>Product age</span><strong>${productAge === "—" ? "—" : `${productAge} year${productAge === 1 ? "" : "s"}`}</strong></div>
-        <div><span>Fault category</span><strong>${claim.faultType}</strong></div>
-        <div><span>Warranty status</span><strong>${claim.warranty.active ? "Active" : "Expired"}</strong></div>
-        <div><span>Warranty period</span><strong>${warrantyStart} to ${warrantyExpiry}</strong></div>
-        <div><span>Serial-number status</span><strong>${claim.product.serialNumber ? "Provided" : "Missing"}</strong></div>
-        <div><span>Evidence files</span><strong>${documents.length} uploaded</strong></div>
-        <div><span>Missing documents</span><strong>${missing.length ? missing.join(", ") : "None"}</strong></div>
-      </div>
-    </div>`;
-}
-
-function modelCard(model) {
-  return `
-    <div class="model-card">
-      <div class="model-card__head">
-        <strong class="text-sm">${model.name}</strong>
-        <span class="text-xs text-muted">${model.version}</span>
-      </div>
-      <div class="text-sm" style="margin-bottom:6px">Prediction: <strong>${model.prediction}</strong></div>
-      <div class="text-xs text-muted">Valid ${formatPercent(model.confidence.valid)} · Invalid ${formatPercent(model.confidence.invalid)} · Review ${formatPercent(model.confidence.review)}</div>
-    </div>`;
-}
-
 function contradictionsBlock(claim) {
   return `
     <div class="card contradiction-card alert--danger" style="margin-bottom:var(--space-4);border:1px solid var(--status-rejected-border)">
@@ -179,7 +149,7 @@ function contradictionsBlock(claim) {
         ${icon("alert-triangle", { size: 18 })}
         <div>
           <div class="alert__title">Attention — contradiction detected</div>
-          ${claim.decision.contradictions.map((c) => `<p class="text-sm">${c.field}: ${c.detail}</p>`).join("")}
+          ${claim.decision.contradictions.map((c) => `<p class="text-sm">${escapeHtml(c)}</p>`).join("")}
         </div>
       </div>
     </div>`;
@@ -189,8 +159,7 @@ function missingDocsBlock(claim) {
   return `
     <div class="card missing-doc-card" style="margin-bottom:var(--space-4);border:1px solid var(--status-warning-border);background:var(--status-warning-bg)">
       <div class="card__header"><div class="card__title" style="color:var(--status-warning-fg)">Documents Required</div></div>
-      ${claim.decision.missingDocuments.map((d) => `<div class="check-item is-pending">${icon("x-circle", { size: 16 })}${d}</div>`).join("")}
-      <a class="btn btn-primary btn-sm" style="margin-top:var(--space-3)" href="/new-claim">${icon("upload", { size: 14 })}Upload Missing Document</a>
+      ${claim.decision.missingDocuments.map((d) => `<div class="check-item is-pending">${icon("x-circle", { size: 16 })}${escapeHtml(d)}</div>`).join("")}
     </div>`;
 }
 
@@ -199,14 +168,43 @@ function duplicateBlock(claim) {
   return `
     <div class="card duplicate-card" style="margin-bottom:var(--space-4);border:1px solid var(--status-review-border);background:var(--status-review-bg)">
       <div class="card__header"><div class="card__title" style="color:var(--status-review-fg)">Duplicate Possible</div></div>
-      <p class="text-sm">This claim appears similar to an existing claim.</p>
+      <p class="text-sm">${escapeHtml(d.reason || "This claim appears similar to an existing claim.")}</p>
       <div class="detail-row"><dt>Related claim</dt><dd><a href="/claim-details?id=${d.relatedClaimId}" style="color:var(--text-link);font-weight:600">${d.relatedClaimId}</a></dd></div>
       <div class="detail-row"><dt>Date</dt><dd>${formatDate(d.relatedDate)}</dd></div>
       <div class="detail-row"><dt>Status</dt><dd>${d.relatedStatus}</dd></div>
     </div>`;
 }
 
+/** Draft or "Additional Information Required": upload more documents and resubmit. */
+function resubmitBlock(claim) {
+  if (claim.status !== "draft" && claim.status !== "info") return "";
+  const types = claim.requiredDocumentTypes?.length ? claim.requiredDocumentTypes : ["fault_evidence"];
+  return `
+    <div class="card" style="margin-bottom:var(--space-4);border:1px solid var(--status-warning-border)">
+      <div class="card__header"><div><div class="card__title">${claim.status === "info" ? "More information requested" : "This claim is still a draft"}</div>
+        <div class="card__subtitle">Upload the documents below, then submit the claim for evaluation.</div></div></div>
+      ${types.map((t) => `<div style="margin-bottom:var(--space-4)"><div class="field__label" style="margin-bottom:var(--space-2)">${docTypeLabel(t)}</div><div data-resubmit-uploader="${t}"></div></div>`).join("")}
+      <button class="btn btn-primary" id="resubmit-claim" type="button">${icon("check-circle-2", { size: 15 })}Submit for evaluation</button>
+    </div>`;
+}
+
 function wire(claim) {
+  document.querySelectorAll("[data-resubmit-uploader]").forEach((el) => {
+    const type = el.dataset.resubmitUploader;
+    mountUploader(el, { claimId: claim.id, docType: type, docLabel: docTypeLabel(type), video: type === "fault_video" || type === "fault_evidence" });
+  });
+  document.getElementById("resubmit-claim")?.addEventListener("click", async (event) => {
+    event.currentTarget.disabled = true;
+    try {
+      await claimService.submitClaim(claim.id);
+      showToast("Claim submitted for evaluation.", "success");
+      renderClaimDetailsPage(document.getElementById("page-content"));
+    } catch (err) {
+      document.getElementById("resubmit-claim").disabled = false;
+      showToast(err.message, "error");
+    }
+  });
+
   document.querySelectorAll(".tab").forEach((tab) => {
     tab.addEventListener("click", () => {
       document.querySelectorAll(".tab").forEach((t) => t.classList.remove("is-active"));

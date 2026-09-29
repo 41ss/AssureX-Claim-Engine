@@ -16,6 +16,8 @@ import { renderSidebar } from "./components/sidebar.js";
 import { renderTopbar, wireTopbarInteractions } from "./components/navbar.js";
 import { renderMobileHeader, renderBottomNav } from "./components/mobileNav.js";
 import { wireThemeToggle } from "./components/theme.js";
+import { xmarkSvg } from "./components/xmark.js";
+import { startRouter } from "./router.js";
 import { state } from "./state.js";
 
 export async function initShell(activePage) {
@@ -37,6 +39,7 @@ export async function initShell(activePage) {
     ${renderMobileHeader(notifications)}
     ${renderSidebar({ activeKey: activePage, session })}
     <div class="shell-main">
+      ${xmarkSvg("app")}
       ${renderTopbar({ notifications })}
       <main class="content" id="page-content"></main>
     </div>
@@ -45,6 +48,7 @@ export async function initShell(activePage) {
 
   wireTopbarInteractions();
   wireThemeToggle();
+  startRouter();
 
   document.querySelector("[data-mobile-search-toggle]")?.addEventListener("click", () => {
     const search = document.querySelector("[data-mobile-search-form]");
@@ -56,10 +60,6 @@ export async function initShell(activePage) {
     authService.logout();
     window.location.href = "/login";
   });
-
-  if (state.ui.mockMode) {
-    console.info("%cASSUREX running in MOCK MODE — see README.md to connect a real backend.", "color:#145C4A;font-weight:bold");
-  }
 
   return session;
 }

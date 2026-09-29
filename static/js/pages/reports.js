@@ -10,6 +10,8 @@ import { skeletonLines } from "../components/loadingState.js";
 import { errorState, friendlyError } from "../components/errorState.js";
 import { formatPercent, formatDate } from "../utils/formatters.js";
 import { showToast } from "../components/toast.js";
+import { escapeHtml } from "../utils/helpers.js";
+import { download } from "../services/api.js";
 
 export async function renderReportsPage(container) {
   container.innerHTML = `
@@ -33,6 +35,11 @@ export async function renderReportsPage(container) {
       <div id="model-performance">${skeletonLines(4)}</div>
     </div>
 
+    <div class="card" style="margin-bottom:var(--space-4)">
+      <div class="card__header"><div><div class="card__title">Claim Analytics</div><div class="card__subtitle">Faults, rejection reasons, repairs, warranty expirations and manual-review frequency.</div></div></div>
+      <div id="analytics">${skeletonLines(4)}</div>
+    </div>
+
     <div class="card">
       <div class="card__header"><div class="card__title">Available Reports</div></div>
       <div id="reports-list"></div>
@@ -42,6 +49,7 @@ export async function renderReportsPage(container) {
   loadStats();
   loadCharts();
   loadModelPerformance();
+  loadAnalytics();
   loadReportsList();
 }
 
@@ -120,8 +128,8 @@ async function loadReportsList() {
       <div class="recent-claim">
         <div class="icon-tile">${icon("file-text", { size: 16 })}</div>
         <div class="recent-claim__body">
-          <div class="recent-claim__title">${r.title}</div>
-          <div class="recent-claim__sub">${r.period} · generated ${formatDate(r.generatedAt)}</div>
+          <div class="recent-claim__title">${escapeHtml(r.title)}</div>
+          <div class="recent-claim__sub">${escapeHtml(r.description)} · updated ${formatDate(r.generatedAt)}</div>
         </div>
         <button class="btn btn-secondary btn-sm" data-report="${r.id}">${icon("download", { size: 14 })}Download</button>
       </div>`
@@ -135,19 +143,33 @@ async function loadReportsList() {
   }
 }
 
-function downloadReport(report) {
+async function downloadReport(report) {
   if (!report) return;
-  const csv = [
-    ["Report ID", "Title", "Period", "Generated"],
-    [report.id, report.title, report.period, formatDate(report.generatedAt)],
-    [],
-    ["Note", "This demonstration export is generated in the browser. The production backend will provide the complete report file."],
-  ].map((row) => row.map((value) => `"${String(value ?? "").replace(/"/g, '""')}"`).join(",")).join("\n");
-  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `${report.id}-${report.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.csv`;
-  link.click();
-  URL.revokeObjectURL(url);
-  showToast("Report download started.", "success");
+  try {
+    await download(report.url.replace(/^\/api/, ""), report.filename);
+    showToast("Report download started.", "success");
+  } catch (err) {
+    showToast(err.message, "error");
+  }
+}
+
+/** Analytics the SRS asks for in xliii, computed by the backend from stored claims. */
+async function loadAnalytics() {
+  const slot = document.getElementById("analytics");
+  try {
+    const a = await reportService.getAnalytics();
+    const list = (rows) => rows.length
+      ? rows.map((r) => `<div class="detail-row"><dt>${escapeHtml(r.label.charAt(0).toUpperCase() + r.label.slice(1))}</dt><dd class="font-numeric">${r.count}</dd></div>`).join("")
+      : `<p class="text-sm text-muted">No data yet.</p>`;
+    slot.innerHTML = `
+      <div class="dash-grid dash-grid--two">
+        <div><div class="card__subtitle" style="margin-bottom:var(--space-2)">Most reported faults</div>${list(a.topFaults)}</div>
+        <div><div class="card__subtitle" style="margin-bottom:var(--space-2)">Most common rejection reasons</div>${list(a.rejectionReasons)}</div>
+        <div><div class="card__subtitle" style="margin-bottom:var(--space-2)">Repair patterns</div>${list(a.repairPatterns)}</div>
+        <div><div class="card__subtitle" style="margin-bottom:var(--space-2)">Warranty expirations</div>${list(a.warrantyExpirations)}</div>
+      </div>
+      <div class="detail-row" style="margin-top:var(--space-3)"><dt>Claims sent to manual review</dt><dd class="font-numeric">${formatPercent(a.manualReviewRate)}</dd></div>`;
+  } catch (err) {
+    slot.innerHTML = errorState({ body: friendlyError(err), onRetry: loadAnalytics });
+  }
 }

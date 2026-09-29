@@ -16,29 +16,18 @@ import { errorState, friendlyError } from "../components/errorState.js";
 import { emptyState } from "../components/emptyState.js";
 import { debounce } from "../utils/helpers.js";
 import { state, resetFilters } from "../state.js";
+import { CATEGORIES, CLAIM_STATUSES, CONSISTENCY_STATUSES, isStaff } from "../utils/claimOptions.js";
 
 const FILTER_CONFIG = [
   {
     key: "status",
     label: "Status",
-    options: [
-      { value: "all", label: "All Statuses" },
-      { value: "approved", label: "Approved" },
-      { value: "rejected", label: "Rejected" },
-      { value: "review", label: "Under Review" },
-    ],
+    options: [{ value: "all", label: "All Statuses" }, ...CLAIM_STATUSES],
   },
   {
-    key: "productType",
-    label: "Product",
-    options: [
-      { value: "all", label: "All Products" },
-      { value: "laptop", label: "Laptops" },
-      { value: "phone", label: "Phones & Audio" },
-      { value: "appliance", label: "Home Appliances" },
-      { value: "vehicle", label: "Vehicles" },
-      { value: "camera", label: "Cameras" },
-    ],
+    key: "category",
+    label: "Product category",
+    options: [{ value: "all", label: "All Categories" }, ...CATEGORIES.map((c) => ({ value: c.value, label: c.label }))],
   },
   {
     key: "warrantyStatus",
@@ -46,7 +35,19 @@ const FILTER_CONFIG = [
     options: [
       { value: "all", label: "Any Warranty Status" },
       { value: "active", label: "Active" },
+      { value: "expiring", label: "Expiring Soon" },
+      { value: "extended", label: "Extended" },
       { value: "expired", label: "Expired" },
+    ],
+  },
+  {
+    key: "risk",
+    label: "Risk level",
+    options: [
+      { value: "all", label: "Any Risk Level" },
+      { value: "high", label: "High risk" },
+      { value: "medium", label: "Medium risk" },
+      { value: "low", label: "Low risk" },
     ],
   },
   {
@@ -62,13 +63,14 @@ const FILTER_CONFIG = [
   {
     key: "consistency",
     label: "Model Result",
-    options: [
-      { value: "all", label: "All Model Results" },
-      { value: "Strong Match", label: "Strong Match" },
-      { value: "Acceptable Match", label: "Acceptable Match" },
-      { value: "Weak Match", label: "Weak Match" },
-      { value: "Model Disagreement", label: "Model Disagreement" },
-    ],
+    options: [{ value: "all", label: "All Model Results" }, ...CONSISTENCY_STATUSES.map((c) => ({ value: c, label: c }))],
+  },
+  {
+    key: "reviewer",
+    label: "Reviewer",
+    staffOnly: true,
+    options: [{ value: "all", label: "Any Reviewer" }, { value: "none", label: "Not reviewed yet" }],
+    loadOptions: () => claimService.getReviewers(),
   },
 ];
 
@@ -94,7 +96,7 @@ export async function renderClaimsPage(container) {
     <div class="filter-bar">
       <div class="filter-bar__search search-input">
         ${icon("search", { size: 16 })}
-        <input type="text" id="claims-search" value="${initialSearch.replace(/"/g, "&quot;")}" placeholder="Search Claim ID, product, serial or fault...">
+        <input type="text" id="claims-search" value="${initialSearch.replace(/"/g, "&quot;")}" placeholder="Search Claim ID, Product ID, product, serial or fault...">
       </div>
       <div id="filter-controls" style="display:flex;gap:var(--space-3);flex-wrap:wrap"></div>
       <div class="date-filter"><label for="submitted-from">From</label><input class="input" type="date" id="submitted-from"></div>
@@ -142,10 +144,11 @@ export async function renderClaimsPage(container) {
 
 function renderFilterControls() {
   const slot = document.getElementById("filter-controls");
-  slot.innerHTML = FILTER_CONFIG.map(
+  const visible = FILTER_CONFIG.filter((f) => !f.staffOnly || isStaff(state.session?.role));
+  slot.innerHTML = visible.map(
     (f) => `
     <div class="select-wrap">
-      <select class="select" data-filter-key="${f.key}" style="min-width:150px">
+      <select class="select" data-filter-key="${f.key}" style="min-width:150px" aria-label="${f.label}">
         ${f.options.map((o) => `<option value="${o.value}" ${state.filters[f.key] === o.value ? "selected" : ""}>${o.label}</option>`).join("")}
       </select>
     </div>`
@@ -157,6 +160,17 @@ function renderFilterControls() {
       currentPage = 1;
       loadClaims();
     });
+  });
+
+  // Filters whose options come from the backend (e.g. the list of reviewers).
+  visible.filter((f) => f.loadOptions).forEach(async (f) => {
+    try {
+      const extra = await f.loadOptions();
+      const select = slot.querySelector(`[data-filter-key="${f.key}"]`);
+      select.insertAdjacentHTML("beforeend", extra.map((o) => `<option value="${o.value}">${o.label}</option>`).join(""));
+    } catch (err) {
+      // The filter still works with its fixed options.
+    }
   });
 }
 

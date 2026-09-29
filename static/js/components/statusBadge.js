@@ -5,12 +5,19 @@
 import { icon } from "./icons.js";
 
 const STATUS_MAP = {
+  // Claim statuses (SRS xxxviii)
+  draft: { label: "Draft", cls: "badge--draft", iconName: "file-text" },
+  submitted: { label: "Submitted", cls: "badge--review", iconName: "clock-3" },
+  evaluating: { label: "Under Evaluation", cls: "badge--review", iconName: "clock-3" },
+  info: { label: "Information Required", cls: "badge--warning", iconName: "alert-triangle" },
+  review: { label: "Manual Review", cls: "badge--review", iconName: "clock-3" },
   approved: { label: "Approved", cls: "badge--approved", iconName: "check-circle-2" },
   rejected: { label: "Rejected", cls: "badge--rejected", iconName: "x-circle" },
-  review: { label: "Under Review", cls: "badge--review", iconName: "clock-3" },
-  draft: { label: "Draft", cls: "badge--draft", iconName: "file-text" },
+  closed: { label: "Closed", cls: "badge--draft", iconName: "check-circle-2" },
+  // Warranty statuses (SRS viii)
   active: { label: "Active", cls: "badge--approved", iconName: "check-circle-2" },
   expiring: { label: "Expiring Soon", cls: "badge--warning", iconName: "alert-triangle" },
+  extended: { label: "Extended Warranty", cls: "badge--approved", iconName: "shield-check" },
   expired: { label: "Expired", cls: "badge--rejected", iconName: "x-circle" },
 };
 

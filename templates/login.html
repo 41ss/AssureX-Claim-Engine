@@ -6,7 +6,7 @@
     <div class="auth-shell__form">
       <div class="auth-card">
         <div class="auth-header">
-          <img src="{{ url_for('static', filename='branding/assurex-mark.svg') }}" alt="ASSUREX">
+          <img src="{{ url_for('static', path='branding/assurex-mark.svg') }}" alt="ASSUREX">
           <h1 id="auth-title" style="font-size:var(--fs-xl)">Welcome back</h1>
           <p id="auth-subtitle" style="margin-top:4px">Sign in to continue to your claims.</p>
         </div>
@@ -16,14 +16,14 @@
         <form id="login-form" novalidate>
           <div class="field" id="field-email">
             <label class="field__label" for="email">Email address</label>
-            <input class="input" type="email" id="email" name="email" placeholder="you@company.com" autocomplete="username" value="cyrus@assurex.demo">
+            <input class="input" type="email" id="email" name="email" placeholder="you@company.com" autocomplete="username">
             <div class="field__error"></div>
           </div>
 
           <div class="field" id="field-password">
             <label class="field__label" for="password">Password</label>
             <div class="input-group">
-              <input class="input" type="password" id="password" name="password" placeholder="••••••••" autocomplete="current-password" value="assurex123">
+              <input class="input" type="password" id="password" name="password" placeholder="••••••••" autocomplete="current-password">
               <button type="button" class="btn-icon input-group__action" id="toggle-password" aria-label="Show password"></button>
             </div>
             <div class="field__error"></div>
@@ -59,6 +59,13 @@
             <div class="field__error"></div>
           </div>
 
+          <div class="field" id="field-register-role">
+            <label class="field__label" for="register-role">Account type</label>
+            <select class="select" id="register-role" name="role">
+              <option value="customer">Customer</option>
+              <option value="service_center">Service-centre employee</option>
+            </select>
+          </div>
           <div class="field" id="field-register-password">
             <label class="field__label" for="register-password">Password</label>
             <input class="input" type="password" id="register-password" name="password" placeholder="At least 8 characters" autocomplete="new-password">
@@ -82,10 +89,12 @@
 
         <div class="auth-demo" id="auth-demo">
           <div class="auth-divider">demo accounts</div>
-          <div class="card" style="padding:var(--space-4);font-size:var(--fs-xs);color:var(--text-secondary)">
-          <div><strong>User:</strong> cyrus@assurex.demo / assurex123</div>
-          <div><strong>Admin:</strong> admin@assurex.demo / assurex123</div>
+          <div class="demo-accounts">
+            <button type="button" class="demo-account" data-demo-email="evaluator@assurex.com" data-demo-password="Evaluator123!"><strong>Evaluator</strong><span>evaluator@assurex.com</span></button>
+            <button type="button" class="demo-account" data-demo-email="reviewer@assurex.com" data-demo-password="Review123!"><strong>Reviewer</strong><span>reviewer@assurex.com</span></button>
+            <button type="button" class="demo-account" data-demo-email="customer@assurex.com" data-demo-password="Customer123!"><strong>Customer</strong><span>customer@assurex.com</span></button>
           </div>
+          <p class="text-xs text-muted" style="margin-top:var(--space-2);text-align:center">Choose an account to fill in its details, then sign in.</p>
         </div>
 
         <p class="auth-footer-link text-muted" id="auth-switch">Don't have an account? <a href="#" id="register-link" style="color:var(--text-link);font-weight:600">Create one</a></p>
@@ -93,14 +102,21 @@
     </div>
 
     <div class="auth-shell__visual">
-      <img src="{{ url_for('static', filename='assets/login-visual.jpeg') }}" alt="ASSUREX Claim Engine, smarter claims and faster decisions">
+      <img src="{{ url_for('static', path='assets/login-visual.jpg') }}" alt="">
+      <div class="auth-visual__copy">
+        <img class="auth-visual__logo" src="{{ url_for('static', path='branding/assurex-logo-light.svg') }}" alt="ASSUREX Claim Engine">
+        <p class="auth-visual__title">Every claim checked twice, and every decision explained.</p>
+        <p class="auth-visual__lead">Two independent models, your warranty rules and a reviewer when they disagree.</p>
+      </div>
     </div>
   </div>
 {% endblock %}
 {% block scripts %}
 <script type="module">
-  import { wireThemeToggle } from "{{ url_for('static', filename='js/components/theme.js') }}";
+  import { wireThemeToggle } from "{{ url_for('static', path='js/components/theme.js') }}";
+  import { xmarkSvg } from "{{ url_for('static', path='js/components/xmark.js') }}";
+  document.querySelector(".auth-shell__form").insertAdjacentHTML("afterbegin", xmarkSvg("login"));
   wireThemeToggle();
 </script>
-<script type="module" src="{{ url_for('static', filename='js/pages/login.js') }}"></script>
+<script type="module" src="{{ url_for('static', path='js/pages/login.js') }}"></script>
 {% endblock %}

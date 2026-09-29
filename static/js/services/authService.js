@@ -1,38 +1,33 @@
 /**
- * authService.js — login/session concerns only.
- * Real authentication (password hashing, tokens, sessions) belongs
- * to the platform/backend team. The frontend collects credentials
- * and stores whatever session info the backend returns.
+ * authService.js — login, registration, profile and the stored session.
+ * The real session is a signed cookie set by src/platform/auth.py; the copy
+ * kept here (name, role, initials) only drives what the pages show.
  */
-
-import { USE_MOCK_DATA, request, mockResolve, mockReject } from "./api.js";
-import { findUserByEmail, registerUser } from "../mock/users.js";
+import { request } from "./api.js";
 import { storage } from "../utils/storage.js";
 
 export const authService = {
   async login(email, password) {
-    if (USE_MOCK_DATA) {
-      const user = findUserByEmail(email);
-      if (!user || user.password !== password) {
-        return mockReject("Incorrect email or password. Please try again.");
-      }
-      const session = { id: user.id, name: user.name, email: user.email, role: user.role, avatarInitials: user.avatarInitials };
-      return mockResolve(session);
-    }
-    // TODO: Replace with confirmed backend endpoint.
     return request("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) });
   },
 
+  /** Self-registration as customer or service-centre employee (SRS i). */
   async register(data) {
-    if (USE_MOCK_DATA) {
-      const user = registerUser(data);
-      return mockResolve({ id: user.id, name: user.name, email: user.email, role: user.role, avatarInitials: user.avatarInitials });
-    }
     return request("/auth/register", { method: "POST", body: JSON.stringify(data) });
   },
 
   logout() {
     storage.remove("session");
+    request("/auth/logout", { method: "POST" }).catch(() => {});
+  },
+
+  /** Profile update (SRS ii). Returns the updated session. */
+  async updateProfile(data) {
+    return request("/auth/me", { method: "PUT", body: JSON.stringify(data) });
+  },
+
+  async changePassword(currentPassword, newPassword) {
+    return request("/auth/password", { method: "POST", body: JSON.stringify({ currentPassword, newPassword }) });
   },
 
   getSession() {
@@ -47,15 +42,6 @@ export const authService = {
   requireSession(redirectTo = "/login") {
     const session = this.getSession();
     if (!session) {
-      window.location.href = redirectTo;
-      return null;
-    }
-    return session;
-  },
-
-  requireRole(role, redirectTo = "/dashboard") {
-    const session = this.getSession();
-    if (!session || session.role !== role) {
       window.location.href = redirectTo;
       return null;
     }

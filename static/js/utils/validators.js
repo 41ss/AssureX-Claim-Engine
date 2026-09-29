@@ -33,21 +33,24 @@ export function isBeforeOrEqual(dateA, dateB) {
 
 const ACCEPTED_DOC_TYPES = ["application/pdf", "image/jpeg", "image/jpg", "image/png"];
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB, matches uploader copy
+const MAX_VIDEO_SIZE_BYTES = 50 * 1024 * 1024; // fault videos (SRS xii)
 
-export function isAcceptedFileType(file) {
-  return ACCEPTED_DOC_TYPES.includes(file.type);
+export function isAcceptedFileType(file, { video = false } = {}) {
+  return ACCEPTED_DOC_TYPES.includes(file.type) || (video && file.type === "video/mp4");
 }
 
-export function isAcceptedFileSize(file) {
-  return file.size <= MAX_FILE_SIZE_BYTES;
+export function isAcceptedFileSize(file, { video = false } = {}) {
+  const limit = video && file.type === "video/mp4" ? MAX_VIDEO_SIZE_BYTES : MAX_FILE_SIZE_BYTES;
+  return file.size <= limit;
 }
 
-export function validateFile(file) {
-  if (!isAcceptedFileType(file)) {
-    return { ok: false, message: "Only PDF, JPG or PNG files are supported." };
+/** Same checks the backend repeats in src/platform (SRS xv). */
+export function validateFile(file, options = {}) {
+  if (!isAcceptedFileType(file, options)) {
+    return { ok: false, message: options.video ? "Only PDF, JPG, PNG or MP4 files are supported." : "Only PDF, JPG or PNG files are supported." };
   }
-  if (!isAcceptedFileSize(file)) {
-    return { ok: false, message: "File is larger than the 10MB limit." };
+  if (!isAcceptedFileSize(file, options)) {
+    return { ok: false, message: `File is larger than the ${options.video && file.type === "video/mp4" ? 50 : 10}MB limit.` };
   }
   return { ok: true };
 }

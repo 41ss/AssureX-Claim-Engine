@@ -10,11 +10,9 @@
  *   state.filters   -> active claims-list filters (the thing judges
  *                      may ask you to extend with a new filter)
  *   state.ui        -> transient UI flags (sidebar open, modal open)
- *   state.mockMode  -> whether the app is running against mock data
  */
 
 import { authService } from "./services/authService.js";
-import { USE_MOCK_DATA } from "./services/api.js";
 
 export const state = {
   session: authService.getSession(),
@@ -26,14 +24,18 @@ export const state = {
   filters: {
     search: "",
     status: "all",
-    productType: "all",
+    category: "all",
     warrantyStatus: "all",
-    dateRange: "all",
+    risk: "all",
+    confidenceRange: "all",
+    consistency: "all",
+    reviewer: "all",
+    submittedFrom: "",
+    submittedTo: "",
   },
 
   ui: {
     notifPanelOpen: false,
-    mockMode: USE_MOCK_DATA,
   },
 };
 
@@ -42,8 +44,13 @@ export function resetFilters() {
   state.filters = {
     search: "",
     status: "all",
-    productType: "all",
+    category: "all",
     warrantyStatus: "all",
-    dateRange: "all",
+    risk: "all",
+    confidenceRange: "all",
+    consistency: "all",
+    reviewer: "all",
+    submittedFrom: "",
+    submittedTo: "",
   };
 }

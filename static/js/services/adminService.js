@@ -1,65 +1,40 @@
 /**
- * adminService.js — review queue and reviewer actions.
- * Decisioning logic itself belongs to the decision-engine team;
- * this service only fetches what's already decided and forwards
- * reviewer actions (approve / reject / request info) to the backend.
+ * adminService.js — manual-review queue, reviewer actions, alerts,
+ * settings and exports for reviewers and administrators.
+ * Endpoints live in src/platform/admin.py.
  */
-
-import { USE_MOCK_DATA, request, mockResolve } from "./api.js";
-import { MOCK_CLAIMS } from "../mock/claims.js";
-
-const CLAIMS_STORAGE_KEY = "assurex:mock-claims";
-
-function mockClaims() {
-  try {
-    const stored = JSON.parse(localStorage.getItem(CLAIMS_STORAGE_KEY) || "null");
-    return Array.isArray(stored) ? stored : [...MOCK_CLAIMS];
-  } catch (err) {
-    return [...MOCK_CLAIMS];
-  }
-}
-
-function saveMockClaims(claims) {
-  try { localStorage.setItem(CLAIMS_STORAGE_KEY, JSON.stringify(claims)); } catch (err) { /* demo remains usable */ }
-}
+import { request, download } from "./api.js";
 
 export const adminService = {
   async getReviewQueue(filters = {}) {
-    if (USE_MOCK_DATA) {
-      let results = mockClaims().filter((c) => c.status === "review");
-      const search = String(filters.search || "").toLowerCase();
-      if (search) results = results.filter((c) => `${c.id} ${c.product.name} ${c.faultType}`.toLowerCase().includes(search));
-      if (filters.warranty && filters.warranty !== "all") results = results.filter((c) => (c.warranty.active ? "active" : "expired") === filters.warranty);
-      if (filters.consistency && filters.consistency !== "all") results = results.filter((c) => c.analysis.consistency === filters.consistency);
-      return mockResolve(results);
-    }
-    // TODO: Replace with confirmed backend endpoint.
-    return request("/admin/review-queue");
+    return request(`/admin/review-queue?${new URLSearchParams(filters)}`);
   },
 
   async getClaimReview(id) {
-    if (USE_MOCK_DATA) return mockResolve(mockClaims().find((claim) => claim.id === id) || null);
-    // TODO: Replace with confirmed backend endpoint.
-    return request(`/admin/review/${id}`);
+    return request(`/claims/${id}`);
   },
 
+  /** approve | reject | request_info | close | comment (SRS xxxvi, xxxvii). */
   async submitReviewerAction(id, action, comment) {
-    if (USE_MOCK_DATA) {
-      const claims = mockClaims();
-      const claim = claims.find((item) => item.id === id);
-      if (claim) {
-        if (action === "approve") { claim.status = "approved"; claim.stage = "Approved"; }
-        if (action === "reject") { claim.status = "rejected"; claim.stage = "Rejected"; }
-        if (action === "request_info") { claim.stage = "Additional Information Required"; }
-        claim.reviewerComment = comment || null;
-        claim.reviewer = JSON.parse(localStorage.getItem("assurex:session") || "null")?.name || "Administrator";
-        claim.reviewedAt = new Date().toISOString();
-        claim.auditHistory = [...(claim.auditHistory || []), { action, comment: comment || "", reviewer: claim.reviewer, timestamp: claim.reviewedAt }];
-        saveMockClaims(claims);
-      }
-      return mockResolve({ ok: true, id, action });
-    }
-    // TODO: Replace with confirmed backend endpoint.
     return request(`/admin/review/${id}/action`, { method: "POST", body: JSON.stringify({ action, comment }) });
+  },
+
+  /** Monitoring and anomaly alerts for administrators (SRS l). */
+  async getAlerts() {
+    return request("/admin/alerts");
+  },
+
+  /** Admin-editable settings: expiry alert days and comparison thresholds (SRS ix, xxiv). */
+  async getSettings() {
+    return request("/admin/settings");
+  },
+
+  async saveSettings(settings) {
+    return request("/admin/settings", { method: "PUT", body: JSON.stringify(settings) });
+  },
+
+  /** CSV or Excel export of claims, products, warranties or analytics (SRS xlv). */
+  async exportData(type, format = "csv") {
+    return download(`/admin/export?type=${type}&format=${format}`, `assurex-${type}.${format}`);
   },
 };

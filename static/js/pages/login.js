@@ -6,6 +6,7 @@
  * team's responsibility.
  */
 import { authService } from "../services/authService.js";
+import { isStaff } from "../utils/claimOptions.js";
 import { icon } from "../components/icons.js";
 import { isRequired, isValidEmail } from "../utils/validators.js";
 
@@ -19,13 +20,22 @@ const passwordInput = document.getElementById("password");
 const registerLink = document.getElementById("register-link");
 const authSwitch = document.getElementById("auth-switch");
 const authDemo = document.getElementById("auth-demo");
+
+// Demo account buttons fill the form; signing in stays a deliberate click.
+authDemo?.querySelectorAll("[data-demo-email]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.getElementById("email").value = btn.dataset.demoEmail;
+    document.getElementById("password").value = btn.dataset.demoPassword;
+    document.getElementById("password").focus();
+  });
+});
 const authTitle = document.getElementById("auth-title");
 const authSubtitle = document.getElementById("auth-subtitle");
 
 // Already signed in? Skip straight to the right dashboard.
 const existing = authService.getSession();
 if (existing) {
-  window.location.href = existing.role === "admin" ? "/admin-dashboard" : "/dashboard";
+  window.location.href = isStaff(existing.role) ? "/admin-dashboard" : "/dashboard";
 }
 
 togglePasswordBtn.innerHTML = icon("eye", { size: 16 });
@@ -82,7 +92,7 @@ form.addEventListener("submit", async (e) => {
   try {
     const session = await authService.login(email, password);
     authService.saveSession(session, remember);
-    window.location.href = session.role === "admin" ? "/admin-dashboard" : "/dashboard";
+    window.location.href = isStaff(session.role) ? "/admin-dashboard" : "/dashboard";
   } catch (err) {
     showAlert("danger", err.message || "Something went wrong while connecting to ASSUREX.");
     submitBtn.classList.remove("is-loading");
@@ -147,7 +157,8 @@ registerForm.addEventListener("submit", async (e) => {
   registerSubmitBtn.classList.add("is-loading");
   registerSubmitBtn.disabled = true;
   try {
-    const session = await authService.register({ name, email, phone, password });
+    const role = document.getElementById("register-role").value;
+    const session = await authService.register({ name, email, phone, password, role });
     authService.saveSession(session, true);
     window.location.href = "/dashboard";
   } catch (err) {

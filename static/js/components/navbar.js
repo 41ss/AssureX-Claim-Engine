@@ -2,16 +2,18 @@
  * navbar.js — topbar: global search, notification bell, date/time.
  */
 import { icon } from "./icons.js";
+import { escapeHtml } from "../utils/helpers.js";
+import { dashboardService } from "../services/dashboardService.js";
 
 function notificationPanel(notifications, id) {
   return `<div class="notif-panel" id="${id}">
     ${notifications.length
       ? notifications.map((n) => `
-        <a class="notif-item ${n.unread ? "is-unread" : ""}" href="${n.claimId ? `/claim-details?id=${n.claimId}` : "#"}">
+        <a class="notif-item ${n.unread ? "is-unread" : ""}" href="${n.claimId ? `/claim-details?id=${n.claimId}` : (n.href || "/dashboard")}">
           <div class="icon-tile">${icon("bell", { size: 14 })}</div>
           <div class="notif-item__body">
-            <div class="notif-item__title">${n.title}</div>
-            <div class="text-xs text-muted">${n.body}</div>
+            <div class="notif-item__title">${escapeHtml(n.title)}</div>
+            <div class="text-xs text-muted">${escapeHtml(n.body)}</div>
             <div class="notif-item__time">${new Date(n.time).toLocaleString("en-GB")}</div>
           </div>
           ${n.unread ? '<span class="notif-item__dot" aria-label="Unread"></span>' : ""}
@@ -57,7 +59,7 @@ export function wireTopbarInteractions() {
     form.addEventListener("submit", (event) => {
       event.preventDefault();
       const query = form.querySelector("input")?.value.trim();
-      if (query) window.location.href = `/claims?search=${encodeURIComponent(query)}`;
+      if (query) import("../router.js").then(({ navigate }) => navigate(`/claims?search=${encodeURIComponent(query)}`));
     });
   });
 
@@ -67,6 +69,12 @@ export function wireTopbarInteractions() {
       const dropdown = trigger.closest(".notif-dropdown");
       dropdown?.classList.toggle("is-open");
       dropdown?.querySelector(".notif-panel")?.classList.toggle("is-open");
+      // Opening the bell marks everything as read (SRS xxxix).
+      if (document.querySelector(".notif-item.is-unread")) {
+        dashboardService.markNotificationsRead().catch(() => {});
+        document.querySelectorAll(".notif-item.is-unread").forEach((item) => item.classList.remove("is-unread"));
+        document.querySelectorAll(".notif-item__dot, .bell-dot").forEach((dot) => dot.remove());
+      }
     });
   });
   document.querySelectorAll(".notif-panel").forEach((panel) => panel.addEventListener("click", (event) => event.stopPropagation()));

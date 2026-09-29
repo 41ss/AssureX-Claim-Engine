@@ -10,11 +10,15 @@ import { adminService } from "../services/adminService.js";
 import { icon } from "../components/icons.js";
 import { statusBadge } from "../components/statusBadge.js";
 import { claimTableRow } from "../components/claimCard.js";
+import { navigate } from "../router.js";
 import { skeletonLines, skeletonTableRows } from "../components/loadingState.js";
 import { errorState, friendlyError } from "../components/errorState.js";
 import { emptyState } from "../components/emptyState.js";
-import { formatPercent } from "../utils/formatters.js";
-import { getQueryParam } from "../utils/helpers.js";
+import { formatDate } from "../utils/formatters.js";
+import { escapeHtml, getQueryParam } from "../utils/helpers.js";
+import { modelComparisonCard, rulesCard, summaryCardImage } from "../components/analysisBlocks.js";
+import { claimService } from "../services/claimService.js";
+import { docTypeLabel } from "../utils/claimOptions.js";
 import { openModal } from "../components/modal.js";
 import { showToast } from "../components/toast.js";
 import { debounce } from "../utils/helpers.js";
@@ -30,7 +34,7 @@ async function renderQueue(container) {
     <div class="page-header"><div><h2>Review Queue</h2><p class="text-sm">Claims flagged for manual review by the decision engine.</p></div></div>
     <div class="filter-bar">
       <div class="filter-bar__search search-input">${icon("search", { size: 16 })}<input id="review-search" placeholder="Search claim, product or fault..."></div>
-      <div class="select-wrap"><select class="select" id="review-consistency"><option value="all">All model outcomes</option><option>Model Disagreement</option><option>Weak Match</option><option>Acceptable Match</option></select></div>
+      <div class="select-wrap"><select class="select" id="review-consistency"><option value="all">All model outcomes</option><option>Model Disagreement</option><option>Uncertain Result</option><option>Weak Match</option><option>Acceptable Match</option><option>Strong Match</option></select></div>
       <div class="select-wrap"><select class="select" id="review-warranty"><option value="all">Any warranty</option><option value="active">Active warranty</option><option value="expired">Expired warranty</option></select></div>
     </div>
     <div class="table-wrap">
@@ -74,7 +78,7 @@ async function renderReviewDetail(container, id) {
       <a href="/admin-review" class="btn btn-ghost btn-sm" style="margin-bottom:var(--space-3)">${icon("arrow-left", { size: 14 })}Back to Queue</a>
       <div class="page-header">
         <div><div style="display:flex;align-items:center;gap:var(--space-3)"><h2>${claim.id}</h2>${statusBadge(claim.status)}</div>
-        <p class="text-sm">${claim.product.name} — ${claim.faultType}</p></div>
+        <p class="text-sm">${escapeHtml(claim.product.name)} — ${escapeHtml(claim.faultType)} · ${escapeHtml(claim.stage)}</p></div>
       </div>
 
       <div class="claim-detail-grid">
@@ -82,36 +86,43 @@ async function renderReviewDetail(container, id) {
           <div class="card" style="margin-bottom:var(--space-4)">
             <div class="card__header"><div class="card__title">Claim & Product</div></div>
             <dl>
-              <div class="detail-row"><dt>Serial number</dt><dd>${claim.product.serialNumber}</dd></div>
-              <div class="detail-row"><dt>Fault</dt><dd>${claim.faultType}</dd></div>
-              <div class="detail-row"><dt>Warranty</dt><dd>${claim.warranty.provider} — ${claim.warranty.active ? statusBadge("active") : statusBadge("expired")}</dd></div>
+              <div class="detail-row"><dt>Product</dt><dd>${escapeHtml(claim.product.name)} (${claim.product.id})</dd></div>
+              <div class="detail-row"><dt>Serial number</dt><dd>${escapeHtml(claim.product.serialNumber)}${claim.serialNumber && claim.serialNumber !== claim.product.serialNumber ? ` <span class="badge badge--warning">claim says ${escapeHtml(claim.serialNumber)}</span>` : ""}</dd></div>
+              <div class="detail-row"><dt>Fault</dt><dd>${escapeHtml(claim.faultType)} · ${escapeHtml(claim.damageLabel || "")}</dd></div>
+              <div class="detail-row"><dt>Fault date</dt><dd>${formatDate(claim.incidentDate)}</dd></div>
+              <div class="detail-row"><dt>Previous repairs</dt><dd>${claim.repairCount ?? 0}${claim.unauthorizedRepairs ? ` (${claim.unauthorizedRepairs} unauthorised)` : ""}</dd></div>
+              <div class="detail-row"><dt>Warranty</dt><dd class="detail-row__stack">${statusBadge(claim.warranty.status || (claim.warranty.active ? "active" : "expired"))}<span>${escapeHtml(claim.warranty.provider)} · until ${formatDate(claim.warranty.expiry)}</span></dd></div>
             </dl>
-            <p style="margin-top:var(--space-3)">${claim.description}</p>
+            <p style="margin-top:var(--space-3)">${escapeHtml(claim.description)}</p>
           </div>
 
           <div class="card" style="margin-bottom:var(--space-4)">
-            <div class="card__header"><div class="card__title">Model Comparison</div></div>
-            <div class="detail-row"><dt>Python Model</dt><dd>${claim.analysis.modelOne.prediction} (${formatPercent(claim.analysis.modelOne.confidence.valid)})</dd></div>
-            <div class="detail-row"><dt>Teachable Machine</dt><dd>${claim.analysis.modelTwo.prediction} (${formatPercent(claim.analysis.modelTwo.confidence.valid)})</dd></div>
-            <div class="detail-row"><dt>Consistency</dt><dd>${claim.analysis.consistency}</dd></div>
+            <div class="card__header"><div class="card__title">Documents</div></div>
+            ${claim.documents.length ? claim.documents.map((d) => `<div class="detail-row"><dt>${docTypeLabel(d.type)}</dt><dd><a href="${claimService.documentUrl(claim.id, d.id)}" target="_blank" rel="noopener" style="color:var(--text-link)">${escapeHtml(d.name)}</a>${d.duplicateOf ? ` <span class="badge badge--warning">also on ${escapeHtml(d.duplicateOf)}</span>` : ""}</dd></div>`).join("") : `<p class="text-sm text-muted">No documents uploaded.</p>`}
           </div>
 
+          ${modelComparisonCard(claim.analysis)}
+
           ${claim.decision.contradictions.length
-            ? `<div class="alert alert--danger" style="margin-bottom:var(--space-4)">${icon("alert-triangle", { size: 18 })}<div><div class="alert__title">Contradiction detected</div>${claim.decision.contradictions.map((c) => `${c.field}: ${c.detail}`).join("<br>")}</div></div>`
+            ? `<div class="alert alert--danger" style="margin-bottom:var(--space-4)">${icon("alert-triangle", { size: 18 })}<div><div class="alert__title">Contradiction detected</div>${claim.decision.contradictions.map(escapeHtml).join("<br>")}</div></div>`
             : ""}
           ${claim.decision.missingDocuments.length
-            ? `<div class="alert alert--warning" style="margin-bottom:var(--space-4)">${icon("alert-triangle", { size: 18 })}<div><div class="alert__title">Missing documents</div>${claim.decision.missingDocuments.join(", ")}</div></div>`
+            ? `<div class="alert alert--warning" style="margin-bottom:var(--space-4)">${icon("alert-triangle", { size: 18 })}<div><div class="alert__title">Missing documents</div>${claim.decision.missingDocuments.map(escapeHtml).join(", ")}</div></div>`
             : ""}
           ${claim.decision.duplicateWarning
-            ? `<div class="alert alert--info" style="margin-bottom:var(--space-4)">${icon("info", { size: 18 })}<div><div class="alert__title">Possible duplicate</div>Related to ${claim.decision.duplicateWarning.relatedClaimId}</div></div>`
+            ? `<div class="alert alert--info" style="margin-bottom:var(--space-4)">${icon("info", { size: 18 })}<div><div class="alert__title">Possible duplicate</div>${escapeHtml(claim.decision.duplicateWarning.reason || "")} Related claim: <a href="/admin-review?id=${claim.decision.duplicateWarning.relatedClaimId}">${claim.decision.duplicateWarning.relatedClaimId}</a></div></div>`
             : ""}
+          ${rulesCard(claim.decision)}
+          ${summaryCardImage(claim.analysis)}
         </div>
 
         <div>
           <div class="card" style="margin-bottom:var(--space-4)">
             <div class="card__header"><div class="card__title">Decision Engine Output</div></div>
-            <h3 style="margin-bottom:var(--space-2)">${claim.decision.result}</h3>
-            <p>${claim.decision.explanation}</p>
+            <h3 style="margin-bottom:var(--space-2)">${escapeHtml(claim.decision.result)}</h3>
+            <p style="margin-bottom:var(--space-3)">${escapeHtml(claim.decision.explanation)}</p>
+            ${claim.decision.supportingFactors.map((f) => `<div class="check-item is-done">${icon("check-circle-2", { size: 16 })}${escapeHtml(f)}</div>`).join("")}
+            ${claim.decision.opposingFactors.map((f) => `<div class="check-item is-pending">${icon("x-circle", { size: 16 })}${escapeHtml(f)}</div>`).join("")}
           </div>
 
           <div class="card">
@@ -126,7 +137,7 @@ async function renderReviewDetail(container, id) {
               <button class="btn btn-secondary btn-block" id="request-info-btn">${icon("alert-triangle", { size: 15 })}Request Information</button>
             </div>
           </div>
-          ${claim.auditHistory?.length ? `<div class="card" style="margin-top:var(--space-4)"><div class="card__header"><div class="card__title">Audit History</div></div>${claim.auditHistory.map((entry) => `<div class="detail-row"><dt>${entry.action.replace("_", " ")} · ${entry.reviewer}</dt><dd>${new Date(entry.timestamp).toLocaleString("en-GB")}</dd></div>${entry.comment ? `<p class="text-xs text-muted" style="margin-bottom:var(--space-2)">${entry.comment}</p>` : ""}`).join("")}</div>` : ""}
+          ${claim.auditHistory?.length ? `<div class="card" style="margin-top:var(--space-4)"><div class="card__header"><div class="card__title">Audit History</div></div><ol class="audit-list">${claim.auditHistory.map((entry) => `<li class="audit-item"><div class="audit-item__head"><strong>${escapeHtml(entry.action)}</strong><time>${new Date(entry.timestamp).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</time></div><div class="text-xs text-muted">${escapeHtml(entry.actor)}${entry.detail ? ` — ${escapeHtml(entry.detail)}` : ""}</div></li>`).join("")}</ol></div>` : ""}
         </div>
       </div>`;
 
@@ -142,7 +153,9 @@ function wireActions(claim) {
   document.getElementById("approve-btn").addEventListener("click", () => {
     openModal({
       title: "Approve this claim?",
-      body: "This overrides the automated recommendation if it differs. The original AI results stay in the audit history.",
+      body: claim.decision.result === "Likely Invalid"
+        ? "The decision engine recommended Likely Invalid, so this is an override. Please give the reason in the comment — the original model results and your reason stay in the audit history."
+        : "The original model results stay in the audit history.",
       confirmLabel: "Approve",
       onConfirm: () => submitAction(claim.id, "approve", comment()),
     });
@@ -150,7 +163,9 @@ function wireActions(claim) {
   document.getElementById("reject-btn").addEventListener("click", () => {
     openModal({
       title: "Reject this claim?",
-      body: "The claimant will be notified that the claim was rejected.",
+      body: claim.decision.result === "Likely Valid"
+        ? "The decision engine recommended Likely Valid, so this is an override. Please give the reason in the comment — it is kept in the audit history. The claimant will be notified."
+        : "The claimant will be notified that the claim was rejected.",
       confirmLabel: "Reject",
       danger: true,
       onConfirm: () => submitAction(claim.id, "reject", comment()),
@@ -163,7 +178,7 @@ async function submitAction(id, action, comment) {
   try {
     await adminService.submitReviewerAction(id, action, comment);
     showToast("Reviewer action recorded.", "success");
-    setTimeout(() => { window.location.href = "/admin-review"; }, 700);
+    setTimeout(() => { navigate("/admin-review"); }, 700);
   } catch (err) {
     showToast("We couldn't save this action. Please try again.", "error");
   }

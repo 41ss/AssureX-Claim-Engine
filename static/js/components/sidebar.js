@@ -4,6 +4,9 @@
  * entirely on mobile in favour of bottomNav.js.
  */
 import { icon } from "./icons.js";
+import { isStaff } from "../utils/claimOptions.js";
+
+const ROLE_LABELS = { customer: "Customer", service_center: "Service-centre employee", reviewer: "Claim reviewer", admin: "Administrator" };
 
 const USER_NAV = [
   { key: "dashboard", label: "Dashboard", href: "/dashboard", iconName: "layout-dashboard" },
@@ -29,7 +32,7 @@ function navItemHtml(item, activeKey) {
 }
 
 export function renderSidebar({ activeKey, session }) {
-  const isAdmin = session?.role === "admin" || activeKey === "admin-dashboard" || activeKey === "admin-review";
+  const isAdmin = isStaff(session?.role) || activeKey === "admin-dashboard" || activeKey === "admin-review";
   const items = isAdmin ? ADMIN_NAV : USER_NAV;
   return `
     <aside class="sidebar">
@@ -49,7 +52,7 @@ export function renderSidebar({ activeKey, session }) {
           <div class="avatar avatar--sm">${session?.avatarInitials || "?"}</div>
           <div style="text-align:left">
             <div class="sidebar__user-name">${session?.name || "Guest"}</div>
-            <div class="sidebar__user-role">${isAdmin ? "Reviewer / Admin" : "Frontend Developer"}</div>
+            <div class="sidebar__user-role">${ROLE_LABELS[session?.role] || "Customer"}</div>
           </div>
           <span style="margin-left:auto">${icon("log-out", { size: 16 })}</span>
         </button>

@@ -1,57 +1,61 @@
 /**
  * pages/newClaim.js — the 5-step new-claim flow.
- * Steps: Product -> Claim Details -> Documents -> Review -> Submit.
- * This page only collects and displays information; it does not
- * decide claim validity — that decision comes back from the
- * decision-engine module once connected.
+ * Steps: Product -> Claim Details -> Documents -> Review -> Result.
+ *
+ * The claim is saved as a Draft when the user leaves Claim Details, so
+ * documents can be uploaded against its Claim ID and read by OCR. This
+ * page never decides claim validity: Submit asks the backend to run both
+ * models and the decision engine, and shows what comes back.
  */
-import { icon, productTypeIcon } from "../components/icons.js";
+import { icon } from "../components/icons.js";
 import { mountUploader } from "../components/fileUpload.js";
+import { mountRepairHistory } from "../components/repairHistory.js";
+import { productFormHtml, wireProductForm } from "../components/productForm.js";
 import { claimService } from "../services/claimService.js";
+import { productService } from "../services/productService.js";
+import { policyService } from "../services/policyService.js";
 import { showToast } from "../components/toast.js";
-import { isRequired, isNotFutureDate, isValidDate } from "../utils/validators.js";
-import { wait, generateClaimId } from "../utils/helpers.js";
-import { MOCK_CLAIMS } from "../mock/claims.js";
+import { statusBadge } from "../components/statusBadge.js";
+import { isRequired, isValidDate } from "../utils/validators.js";
+import { escapeHtml } from "../utils/helpers.js";
+import { formatDate } from "../utils/formatters.js";
+import { DAMAGE_TYPES, categoryIcon, categoryLabel, docTypeLabel, humanize } from "../utils/claimOptions.js";
+import { navigate } from "../router.js";
 
-const STEPS = ["Product", "Claim Details", "Documents", "Review", "Submit"];
-const PRODUCT_TYPES = [
-  { value: "laptop", label: "Laptop", iconName: "laptop" },
-  { value: "phone", label: "Phone / Audio", iconName: "smartphone" },
-  { value: "appliance", label: "Appliance", iconName: "washing-machine" },
-  { value: "vehicle", label: "Vehicle", iconName: "car" },
-  { value: "camera", label: "Camera", iconName: "scan-search" },
-  { value: "other", label: "Other", iconName: "package" },
-];
-const DOC_CATEGORIES = [
-  { key: "receipt", label: "Purchase Receipt" },
-  { key: "warranty", label: "Warranty Document" },
-  { key: "photo", label: "Product Photo" },
-  { key: "evidence", label: "Additional Evidence" },
-];
+const STEPS = ["Product", "Claim Details", "Documents", "Review", "Result"];
 
 let step = 0;
 let container;
-const draft = {
-  product: { type: "", name: "", brand: "", model: "", serialNumber: "", purchaseDate: "", purchasePrice: "", retailer: "", warrantyProvider: "", warrantyStart: "", warrantyExpiry: "", warrantyCoverage: "", warrantyExclusions: "" },
-  details: { issueDescription: "", incidentDate: "", damageType: "", notes: "", repairHistory: "", serviceCenter: "", replacedParts: "", replacementDetails: "" },
-  documents: {},
-};
+let draft;
+
+function emptyDraft() {
+  return {
+    product: null,          // the selected registered product
+    registering: false,     // showing the inline "new product" form
+    policy: null,           // warranty policy for the product's category
+    claimId: null,
+    details: {
+      faultCategory: "", damageType: "none", faultDate: "", description: "",
+      serialNumber: "", invoiceNumber: "", previousReplacement: false, replacementDetails: "", notes: "",
+    },
+    documents: {},          // docType -> uploaded documents
+  };
+}
 
 export function renderNewClaimPage(root) {
   container = root;
   step = 0;
+  draft = emptyDraft();
   container.innerHTML = `
-    <div class="page-header"><div><h2>New Claim</h2><p class="text-sm">Complete each step — you can always come back and edit before submitting.</p></div></div>
+    <div class="page-header"><div><h2>New Claim</h2><p class="text-sm">Complete each step — the claim is saved as a draft and you can come back to edit it before submitting.</p></div></div>
     <div class="stepper" id="stepper"></div>
     <div class="step-panel" id="step-panel"></div>
   `;
-  renderStepper();
   renderStep();
 }
 
 function renderStepper() {
-  const el = document.getElementById("stepper");
-  el.innerHTML = STEPS.map((label, i) => {
+  document.getElementById("stepper").innerHTML = STEPS.map((label, i) => {
     const cls = i < step ? "is-done" : i === step ? "is-active" : "";
     return `
       <div class="stepper__step ${cls}">
@@ -62,144 +66,251 @@ function renderStepper() {
   }).join("");
 }
 
-function renderStep() {
+async function renderStep() {
   renderStepper();
   const panel = document.getElementById("step-panel");
-  if (step === 0) panel.innerHTML = productStepHtml();
-  else if (step === 1) panel.innerHTML = detailsStepHtml();
-  else if (step === 2) panel.innerHTML = documentsStepHtml();
-  else if (step === 3) panel.innerHTML = reviewStepHtml();
-  else panel.innerHTML = submitStepHtml();
-
-  wireStep();
+  panel.innerHTML = `<div class="card"><p class="text-sm text-muted">Loading…</p></div>`;
+  try {
+    if (step === 0) await productStep(panel);
+    else if (step === 1) detailsStep(panel);
+    else if (step === 2) documentsStep(panel);
+    else if (step === 3) await reviewStep(panel);
+    else await resultStep(panel);
+  } catch (err) {
+    panel.innerHTML = `<div class="alert alert--danger">${icon("alert-triangle", { size: 18 })}<div>${escapeHtml(err.message)}</div></div>`;
+  }
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
-/* ---------------- Step 1: Product ---------------- */
-function productStepHtml() {
+function footer({ next = "Continue", back = step > 0 } = {}) {
   return `
+    <div style="margin-top:var(--space-6);justify-content:flex-end;display:flex;gap:var(--space-3)">
+      ${back ? `<button class="btn btn-secondary" id="btn-back" type="button">${icon("arrow-left", { size: 15 })}Back</button>` : ""}
+      <button class="btn btn-primary" id="btn-next" type="button">${next}${icon("chevron-right", { size: 15 })}</button>
+    </div>`;
+}
+
+function wireBack() {
+  document.getElementById("btn-back")?.addEventListener("click", () => { step -= 1; renderStep(); });
+}
+
+/* ---------------- Step 1: Product ---------------- */
+async function productStep(panel) {
+  const products = await productService.getProducts();
+  panel.innerHTML = `
     <div class="card">
-      <div class="card__title" style="margin-bottom:var(--space-4)">What kind of product is this?</div>
-      <div class="product-type-grid">
-        ${PRODUCT_TYPES.map(
-          (t) => `<button type="button" class="product-type-card ${draft.product.type === t.value ? "is-selected" : ""}" data-type="${t.value}">
-            ${icon(t.iconName, { size: 22 })}${t.label}
-          </button>`
-        ).join("")}
-      </div>
-      <div class="form-row">
-        <div class="field"><label class="field__label" for="p-name">Product name</label><input class="input" id="p-name" value="${draft.product.name}" placeholder="e.g. Dell XPS 15"></div>
-        <div class="field"><label class="field__label" for="p-brand">Brand</label><input class="input" id="p-brand" value="${draft.product.brand}" placeholder="e.g. Dell"></div>
-      </div>
-      <div class="form-row">
-        <div class="field"><label class="field__label" for="p-model">Model</label><input class="input" id="p-model" value="${draft.product.model}" placeholder="e.g. XPS 15 9530"></div>
-        <div class="field"><label class="field__label" for="p-serial">Serial number</label><input class="input" id="p-serial" value="${draft.product.serialNumber}" placeholder="e.g. SN12345678"></div>
-      </div>
-      <div class="form-row">
-        <div class="field"><label class="field__label" for="p-purchase-date">Purchase date</label><input class="input" type="date" id="p-purchase-date" value="${draft.product.purchaseDate}"></div>
-        <div class="field"><label class="field__label" for="p-price">Purchase price <span class="optional">(optional)</span></label><input class="input" type="number" id="p-price" value="${draft.product.purchasePrice}" placeholder="KES"></div>
-      </div>
-      <div class="form-row">
-        <div class="field"><label class="field__label" for="p-retailer">Retailer <span class="optional">(optional)</span></label><input class="input" id="p-retailer" value="${draft.product.retailer}" placeholder="Where it was purchased"></div>
-        <div class="field"><label class="field__label" for="p-warranty-provider">Warranty provider</label><input class="input" id="p-warranty-provider" value="${draft.product.warrantyProvider}" placeholder="e.g. Dell Premium Care"></div>
-      </div>
-      <div class="form-row">
-        <div class="field"><label class="field__label" for="p-warranty-start">Warranty start date</label><input class="input" type="date" id="p-warranty-start" value="${draft.product.warrantyStart}"></div>
-        <div class="field"><label class="field__label" for="p-warranty-expiry">Warranty expiry</label><input class="input" type="date" id="p-warranty-expiry" value="${draft.product.warrantyExpiry}"></div>
-      </div>
-      <div class="field"><label class="field__label" for="p-warranty-coverage">Warranty coverage and exclusions <span class="optional">(optional)</span></label><textarea class="textarea" id="p-warranty-coverage" placeholder="Covered faults, exclusions, reporting deadlines...">${draft.product.warrantyCoverage}</textarea></div>
-      <div class="field"><label class="field__label" for="p-warranty-exclusions">Excluded damage <span class="optional">(optional)</span></label><input class="input" id="p-warranty-exclusions" value="${draft.product.warrantyExclusions}" placeholder="Water damage, accidental damage, etc."></div>
-      </div>
+      <div class="card__title" style="margin-bottom:var(--space-4)">Which product is this claim for?</div>
+      ${products.length ? `<div class="product-pick-grid">
+        ${products.map((p) => `
+          <button type="button" class="product-pick ${draft.product?.id === p.id ? "is-selected" : ""}" data-product="${p.id}">
+            <div class="icon-tile">${icon(categoryIcon(p.category), { size: 18 })}</div>
+            <div class="product-pick__body">
+              <div class="product-pick__head"><span class="card__title">${escapeHtml(p.name)}</span>${statusBadge(p.warranty?.status || "active")}</div>
+              <div class="text-xs text-muted">${p.id} · ${escapeHtml(p.brand)} ${escapeHtml(p.model)} · SN ${escapeHtml(p.serialNumber)}</div>
+              <div class="text-xs text-muted">${categoryLabel(p.category)} · warranty to ${formatDate(p.warranty?.expiry)}</div>
+            </div>
+          </button>`).join("")}
+      </div>` : `<p class="text-sm text-muted">You have no registered products yet.</p>`}
+      <button type="button" class="btn btn-secondary" id="toggle-register" style="margin-top:var(--space-4)">${icon("plus", { size: 15 })}Register a new product</button>
+      <div id="register-slot" ${draft.registering ? "" : "hidden"} style="margin-top:var(--space-4)">${productFormHtml()}</div>
     </div>
-    ${stepFooter()}`;
+    ${footer({ back: false })}`;
+
+  const form = wireProductForm(panel.querySelector("#register-slot"));
+  panel.querySelectorAll("[data-product]").forEach((btn) => btn.addEventListener("click", () => {
+    draft.product = products.find((p) => p.id === btn.dataset.product);
+    draft.registering = false;
+    panel.querySelector("#register-slot").hidden = true;
+    panel.querySelectorAll("[data-product]").forEach((b) => b.classList.toggle("is-selected", b === btn));
+  }));
+  panel.querySelector("#toggle-register").addEventListener("click", () => {
+    draft.registering = !draft.registering;
+    panel.querySelector("#register-slot").hidden = !draft.registering;
+    if (draft.registering) {
+      draft.product = null;
+      panel.querySelectorAll("[data-product]").forEach((b) => b.classList.remove("is-selected"));
+    }
+  });
+
+  document.getElementById("btn-next").addEventListener("click", async () => {
+    if (draft.registering) {
+      const payload = form.read();
+      if (!payload) {
+        showToast(form.categoryMissing() ? "Choose the product category." : "Please fill in the highlighted fields.", "error");
+        return;
+      }
+      try {
+        draft.product = await productService.registerProduct(payload);
+        draft.registering = false;
+        showToast(`Product registered as ${draft.product.id}.`, "success");
+      } catch (err) {
+        showToast(err.message, "error");
+        return;
+      }
+    }
+    if (!draft.product) {
+      showToast("Choose a product or register a new one.", "error");
+      return;
+    }
+    if (draft.claimId && draft.product.id !== draft.productIdAtDraft) draft.claimId = null; // product changed: start a new draft
+    draft.policy = await policyService.getPolicy(draft.product.category);
+    if (!draft.details.serialNumber) draft.details.serialNumber = draft.product.serialNumber;
+    step = 1;
+    renderStep();
+  });
 }
 
 /* ---------------- Step 2: Claim Details ---------------- */
-function detailsStepHtml() {
-  return `
-    <div class="card">
-      <div class="field">
-        <label class="field__label" for="d-issue">Issue description</label>
-        <textarea class="textarea" id="d-issue" placeholder="Describe what happened...">${draft.details.issueDescription}</textarea>
-        <div class="field__error"></div>
-      </div>
+function detailsStep(panel) {
+  const d = draft.details;
+  const p = draft.policy;
+  const coveredFaults = p?.coveredFaults || [];
+  const otherFaults = (p?.exclusions || []).filter((f) => f !== "physical_damage" && f !== "water_damage");
+  panel.innerHTML = `
+    <div class="card" style="margin-bottom:var(--space-4)">
+      <div class="card__header"><div><div class="card__title">What went wrong?</div><div class="card__subtitle">${escapeHtml(draft.product.name)} · ${categoryLabel(draft.product.category)}</div></div></div>
       <div class="form-row">
         <div class="field">
-          <label class="field__label" for="d-incident-date">Fault occurrence date</label>
-          <input class="input" type="date" id="d-incident-date" value="${draft.details.incidentDate}">
+          <label class="field__label" for="d-fault">Fault</label>
+          <div class="select-wrap"><select class="select" id="d-fault">
+            <option value="">Choose the fault…</option>
+            <optgroup label="Faults covered by this warranty">${coveredFaults.map((f) => `<option value="${f}" ${d.faultCategory === f ? "selected" : ""}>${humanize(f)}</option>`).join("")}</optgroup>
+            <optgroup label="Usually not covered">${otherFaults.map((f) => `<option value="${f}" ${d.faultCategory === f ? "selected" : ""}>${humanize(f)}</option>`).join("")}</optgroup>
+            <option value="other" ${d.faultCategory === "other" ? "selected" : ""}>Something else</option>
+          </select></div>
           <div class="field__error"></div>
         </div>
         <div class="field">
-          <label class="field__label" for="d-damage-type">Damage type</label>
-          <div class="select-wrap">
-            <select class="select" id="d-damage-type">
-              ${["Screen Damage", "Water Damage", "Power Surge", "Won't Power On", "Battery Issue", "Accidental Damage", "Other"]
-                .map((o) => `<option ${draft.details.damageType === o ? "selected" : ""}>${o}</option>`)
-                .join("")}
-            </select>
-          </div>
+          <label class="field__label" for="d-damage">Physical or liquid damage?</label>
+          <div class="select-wrap"><select class="select" id="d-damage">${DAMAGE_TYPES.map((t) => `<option value="${t.value}" ${d.damageType === t.value ? "selected" : ""}>${t.label}</option>`).join("")}</select></div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label class="field__label" for="d-fault-date">Date the fault started</label>
+          <input class="input" type="date" id="d-fault-date" value="${d.faultDate}">
+          <div class="field__error"></div>
+        </div>
+        <div class="field">
+          <label class="field__label" for="d-serial">Serial number on the product</label>
+          <input class="input" id="d-serial" value="${escapeHtml(d.serialNumber)}">
+          <div class="field__hint text-xs text-muted">Compared with the receipt, warranty card and photos.</div>
         </div>
       </div>
       <div class="field">
-        <label class="field__label" for="d-notes">Additional notes <span class="optional">(optional)</span></label>
-        <textarea class="textarea" id="d-notes" placeholder="Anything else the reviewer should know?">${draft.details.notes}</textarea>
+        <label class="field__label" for="d-description">Describe the fault</label>
+        <textarea class="textarea" id="d-description" placeholder="What happened, and what the product does now…">${escapeHtml(d.description)}</textarea>
+        <div class="field__error"></div>
       </div>
-      <div class="field"><label class="field__label" for="d-repair-history">Repair history <span class="optional">(optional)</span></label><textarea class="textarea" id="d-repair-history" placeholder="Previous repair dates, outcomes, and costs...">${draft.details.repairHistory}</textarea></div>
       <div class="form-row">
-        <div class="field"><label class="field__label" for="d-service-center">Service center <span class="optional">(optional)</span></label><input class="input" id="d-service-center" value="${draft.details.serviceCenter}" placeholder="Authorized or independent center"></div>
-        <div class="field"><label class="field__label" for="d-replaced-parts">Replaced parts <span class="optional">(optional)</span></label><input class="input" id="d-replaced-parts" value="${draft.details.replacedParts}" placeholder="Parts replaced previously"></div>
+        <div class="field"><label class="field__label" for="d-invoice">Invoice number <span class="optional">(optional)</span></label><input class="input" id="d-invoice" value="${escapeHtml(d.invoiceNumber)}" placeholder="As printed on the receipt"></div>
+        <div class="field"><label class="field__label" for="d-replaced">Has the product been replaced under warranty before?</label>
+          <div class="select-wrap"><select class="select" id="d-replaced"><option value="no">No</option><option value="yes" ${d.previousReplacement ? "selected" : ""}>Yes</option></select></div></div>
       </div>
-      <div class="field"><label class="field__label" for="d-replacement">Previous replacement details <span class="optional">(optional)</span></label><input class="input" id="d-replacement" value="${draft.details.replacementDetails}" placeholder="Any previous product replacement or exchange"></div>
+      <div class="field" id="replacement-details-field" ${d.previousReplacement ? "" : "hidden"}><label class="field__label" for="d-replacement">Replacement details</label><input class="input" id="d-replacement" value="${escapeHtml(d.replacementDetails)}" placeholder="When and why it was replaced"></div>
+      <div class="field"><label class="field__label" for="d-notes">Anything else the reviewer should know? <span class="optional">(optional)</span></label><textarea class="textarea" id="d-notes">${escapeHtml(d.notes)}</textarea></div>
     </div>
-    ${stepFooter()}`;
+    <div class="card">
+      <div class="card__header"><div><div class="card__title">Repair history</div><div class="card__subtitle">Earlier repairs on this product, including where they were done.</div></div></div>
+      <div id="repairs-slot"></div>
+    </div>
+    ${footer()}`;
+
+  mountRepairHistory(panel.querySelector("#repairs-slot"), draft.product, {
+    onChange: (repairs) => { draft.product.repairs = repairs; },
+  });
+  panel.querySelector("#d-replaced").addEventListener("change", (e) => {
+    panel.querySelector("#replacement-details-field").hidden = e.target.value !== "yes";
+  });
+  wireBack();
+
+  document.getElementById("btn-next").addEventListener("click", async () => {
+    Object.assign(d, {
+      faultCategory: val("d-fault"), damageType: val("d-damage"), faultDate: val("d-fault-date"),
+      description: val("d-description"), serialNumber: val("d-serial"), invoiceNumber: val("d-invoice"),
+      previousReplacement: val("d-replaced") === "yes", replacementDetails: val("d-replacement"), notes: val("d-notes"),
+    });
+    let ok = true;
+    ["d-fault", "d-fault-date", "d-description"].forEach(clearErr);
+    if (!d.faultCategory) { setErr("d-fault", "Choose the fault."); ok = false; }
+    if (!isValidDate(d.faultDate)) { setErr("d-fault-date", "Enter a valid date."); ok = false; }
+    if (!isRequired(d.description)) { setErr("d-description", "Please describe the fault."); ok = false; }
+    if (!ok) return;
+
+    const payload = { productId: draft.product.id, ...d };
+    try {
+      const claim = draft.claimId ? await claimService.updateDraft(draft.claimId, payload) : await claimService.createDraft(payload);
+      draft.claimId = claim.id;
+      draft.productIdAtDraft = draft.product.id;
+      step = 2;
+      renderStep();
+    } catch (err) {
+      showToast(err.message, "error");
+    }
+  });
 }
 
 /* ---------------- Step 3: Documents ---------------- */
-function documentsStepHtml() {
-  return `
+function documentsStep(panel) {
+  const mandatory = draft.policy?.mandatoryDocuments || ["receipt"];
+  const optional = draft.policy?.optionalDocuments || [];
+  const slot = (type, required) => `
+    <div style="margin-bottom:var(--space-6)">
+      <div class="field__label" style="margin-bottom:var(--space-2)">${docTypeLabel(type)} ${required ? `<span class="badge badge--review">Required</span>` : `<span class="optional">(optional)</span>`}</div>
+      <div id="uploader-${type}"></div>
+    </div>`;
+  panel.innerHTML = `
     <div class="card">
-      ${DOC_CATEGORIES.map((c) => `
-        <div style="margin-bottom:var(--space-6)">
-          <div class="field__label" style="margin-bottom:var(--space-2)">${c.label}${c.key !== "evidence" ? "" : ' <span class="optional">(optional)</span>'}</div>
-          <div id="uploader-${c.key}"></div>
-        </div>`).join("")}
+      <div class="card__header"><div><div class="card__title">Supporting documents</div><div class="card__subtitle">Claim ${draft.claimId} · receipts and warranty cards are read automatically — check what was read before continuing.</div></div></div>
+      ${mandatory.map((t) => slot(t, true)).join("")}
+      ${optional.map((t) => slot(t, false)).join("")}
     </div>
-    ${stepFooter()}`;
+    ${footer()}`;
+
+  [...mandatory, ...optional].forEach((type) => {
+    mountUploader(panel.querySelector(`#uploader-${type}`), {
+      claimId: draft.claimId,
+      docType: type,
+      docLabel: docTypeLabel(type),
+      video: type === "fault_video" || type === "fault_evidence",
+      initial: draft.documents[type] || [],
+      onChange: (docs) => { draft.documents[type] = docs.filter((x) => x.id); },
+    });
+  });
+  wireBack();
+  document.getElementById("btn-next").addEventListener("click", () => { step = 3; renderStep(); });
 }
 
-/* ---------------- Step 4: Review ---------------- */
-function reviewStepHtml() {
-  const missing = computeMissing();
-  const readiness = computeReadiness();
-  return `
+/* ---------------- Step 4: Review (claim preparation, SRS xxxiii) ---------------- */
+async function reviewStep(panel) {
+  const prep = await claimService.getPreparation(draft.claimId);
+  const d = draft.details;
+  const readiness = Math.round((prep.readiness || 0) * 100);
+  const list = (items, cls, iconName) => items.map((t) => `<div class="check-item ${cls}">${icon(iconName, { size: 16 })}${escapeHtml(t)}</div>`).join("");
+  panel.innerHTML = `
     <div class="claim-detail-grid">
       <div>
         <div class="card" style="margin-bottom:var(--space-4)">
-          <div class="card__header"><div class="card__title">Product</div><button class="btn btn-ghost btn-sm" data-goto="0">Edit</button></div>
+          <div class="card__header"><div class="card__title">Claim ${draft.claimId}</div><button class="btn btn-ghost btn-sm" data-goto="1">Edit</button></div>
           <dl>
-            <div class="detail-row"><dt>Product</dt><dd>${draft.product.name || "—"}</dd></div>
-            <div class="detail-row"><dt>Brand / Model</dt><dd>${draft.product.brand || "—"} ${draft.product.model || ""}</dd></div>
-            <div class="detail-row"><dt>Serial number</dt><dd>${draft.product.serialNumber || "—"}</dd></div>
-            <div class="detail-row"><dt>Retailer</dt><dd>${draft.product.retailer || "—"}</dd></div>
-            <div class="detail-row"><dt>Purchase date</dt><dd>${draft.product.purchaseDate || "—"}</dd></div>
-            <div class="detail-row"><dt>Warranty</dt><dd>${draft.product.warrantyProvider || "—"}</dd></div>
+            <div class="detail-row"><dt>Product</dt><dd>${escapeHtml(draft.product.name)} (${draft.product.id})</dd></div>
+            <div class="detail-row"><dt>Serial number</dt><dd>${escapeHtml(d.serialNumber || "—")}</dd></div>
+            <div class="detail-row"><dt>Fault</dt><dd>${humanize(d.faultCategory)}</dd></div>
+            <div class="detail-row"><dt>Damage</dt><dd>${DAMAGE_TYPES.find((t) => t.value === d.damageType)?.label}</dd></div>
+            <div class="detail-row"><dt>Fault date</dt><dd>${formatDate(d.faultDate)}</dd></div>
+            <div class="detail-row"><dt>Previous repairs</dt><dd>${(draft.product.repairs || []).length}</dd></div>
           </dl>
-        </div>
-        <div class="card" style="margin-bottom:var(--space-4)">
-          <div class="card__header"><div class="card__title">Claim Description</div><button class="btn btn-ghost btn-sm" data-goto="1">Edit</button></div>
-          <p>${draft.details.issueDescription || "—"}</p>
-          <div class="detail-row"><dt>Fault date</dt><dd>${draft.details.incidentDate || "—"}</dd></div>
-          <div class="detail-row"><dt>Damage type</dt><dd>${draft.details.damageType || "—"}</dd></div>
-          <div class="detail-row"><dt>Repair history</dt><dd>${draft.details.repairHistory || "None provided"}</dd></div>
+          <p style="margin-top:var(--space-3)">${escapeHtml(d.description)}</p>
         </div>
         <div class="card">
           <div class="card__header"><div class="card__title">Documents</div><button class="btn btn-ghost btn-sm" data-goto="2">Edit</button></div>
-          ${DOC_CATEGORIES.map((c) => `<div class="check-item ${draft.documents[c.key]?.length ? "is-done" : "is-pending"}">${icon(draft.documents[c.key]?.length ? "check-circle-2" : "x-circle", { size: 16 })}${c.label}</div>`).join("")}
+          ${list(prep.presentDocuments || [], "is-done", "check-circle-2")}
+          ${list(prep.missingDocuments || [], "is-pending", "x-circle")}
         </div>
       </div>
       <div>
         <div class="card">
-          <div class="card__title" style="margin-bottom:var(--space-4)">Claim Readiness</div>
+          <div class="card__title" style="margin-bottom:var(--space-4)">Before you submit</div>
           <div style="text-align:center;margin-bottom:var(--space-4)">
             <div class="ring" style="--ring-size:100px;margin:0 auto">
               <svg width="100" height="100" viewBox="0 0 100 100">
@@ -210,176 +321,52 @@ function reviewStepHtml() {
               <span class="ring__value">${readiness}%</span>
             </div>
           </div>
-          ${missing.length
-            ? `<div class="alert alert--warning">${icon("alert-triangle", { size: 18 })}<div><div class="alert__title">Almost ready</div>Missing: ${missing.join(", ")}.</div></div>`
-            : `<div class="alert alert--success">${icon("check-circle-2", { size: 18 })}<div><div class="alert__title">Ready to submit</div>All required information is complete.</div></div>`}
+          ${prep.missingFields?.length ? `<div class="alert alert--warning" style="margin-bottom:var(--space-3)">${icon("alert-triangle", { size: 18 })}<div><div class="alert__title">Missing information</div>${prep.missingFields.map(escapeHtml).join(", ")}</div></div>` : ""}
+          ${prep.missingDocuments?.length ? `<div class="alert alert--warning" style="margin-bottom:var(--space-3)">${icon("file-text", { size: 18 })}<div><div class="alert__title">Required documents not uploaded</div>${prep.missingDocuments.map(escapeHtml).join(", ")}</div></div>` : ""}
+          ${prep.deadlines?.length ? `<div class="alert alert--info" style="margin-bottom:var(--space-3)">${icon("clock-3", { size: 18 })}<div><div class="alert__title">Deadlines</div>${prep.deadlines.map(escapeHtml).join("<br>")}</div></div>` : ""}
+          ${prep.contradictions?.length ? `<div class="alert alert--danger" style="margin-bottom:var(--space-3)">${icon("alert-triangle", { size: 18 })}<div><div class="alert__title">Possible contradictions</div>${prep.contradictions.map(escapeHtml).join("<br>")}</div></div>` : ""}
+          ${prep.actions?.length ? `<div class="card__subtitle" style="margin-bottom:var(--space-2)">Recommended before submitting</div>${list(prep.actions, "is-pending", "chevron-right")}` : ""}
+          ${!prep.missingFields?.length && !prep.missingDocuments?.length && !prep.contradictions?.length
+            ? `<div class="alert alert--success">${icon("check-circle-2", { size: 18 })}<div><div class="alert__title">Ready to submit</div>Nothing is missing.</div></div>`
+            : `<p class="text-xs text-muted" style="margin-top:var(--space-3)">You can still submit — claims with gaps are sent to a reviewer.</p>`}
         </div>
       </div>
     </div>
-    ${stepFooter({ submitLabel: "Submit Claim" })}`;
+    ${footer({ next: "Submit claim" })}`;
+
+  panel.querySelectorAll("[data-goto]").forEach((btn) => btn.addEventListener("click", () => { step = Number(btn.dataset.goto); renderStep(); }));
+  wireBack();
+  document.getElementById("btn-next").addEventListener("click", () => { step = 4; renderStep(); });
 }
 
-/* ---------------- Step 5: Submit / processing ---------------- */
-function submitStepHtml() {
-  return `
+/* ---------------- Step 5: Result ---------------- */
+async function resultStep(panel) {
+  panel.innerHTML = `
     <div class="card" style="text-align:center;padding:var(--space-12)">
       <div class="state-block__icon" style="margin:0 auto var(--space-4)">${icon("sparkles", { size: 26 })}</div>
-      <h3>Claim submitted</h3>
-      <p style="margin-bottom:var(--space-6)">Preparing your claim for analysis...</p>
-      <div class="timeline" style="text-align:left;max-width:360px;margin:0 auto" id="submit-timeline"></div>
+      <h3>Evaluating claim ${draft.claimId}</h3>
+      <p>Running the Python model and the Teachable Machine model, then the warranty rules…</p>
     </div>`;
-}
-
-/* ---------------- Shared footer + wiring ---------------- */
-function stepFooter({ submitLabel } = {}) {
-  const isLast = step === STEPS.length - 2; // Review step, next click submits
-  return `
-    <div class="page-header__actions" style="margin-top:var(--space-6);justify-content:flex-end;display:flex;gap:var(--space-3)">
-      ${step > 0 ? `<button class="btn btn-secondary" id="btn-back">${icon("arrow-left", { size: 15 })}Back</button>` : ""}
-      <button class="btn btn-primary" id="btn-next">${isLast ? submitLabel || "Submit Claim" : "Continue"}${!isLast ? icon("chevron-right", { size: 15 }) : ""}</button>
+  let claim;
+  try {
+    claim = await claimService.submitClaim(draft.claimId);
+  } catch (err) {
+    step = 3;
+    showToast(err.message, "error");
+    renderStep();
+    return;
+  }
+  panel.innerHTML = `
+    <div class="card" style="text-align:center;padding:var(--space-10)">
+      <div style="margin-bottom:var(--space-3)">${statusBadge(claim.status)}</div>
+      <h3 style="margin-bottom:var(--space-2)">${escapeHtml(claim.decision.result)}</h3>
+      <p style="max-width:560px;margin:0 auto var(--space-4)">${escapeHtml(claim.decision.explanation)}</p>
+      <p class="text-sm text-muted" style="margin-bottom:var(--space-6)">Python model: ${escapeHtml(claim.analysis.modelOne.prediction)} · Teachable Machine: ${escapeHtml(claim.analysis.modelTwo.prediction)} · ${escapeHtml(claim.analysis.consistency)}</p>
+      <button class="btn btn-primary" id="view-claim" type="button">View full claim${icon("chevron-right", { size: 15 })}</button>
     </div>`;
+  document.getElementById("view-claim").addEventListener("click", () => navigate(`/claim-details?id=${claim.id}`));
 }
 
-function wireStep() {
-  document.getElementById("btn-back")?.addEventListener("click", () => { step -= 1; renderStep(); });
-  document.querySelectorAll("[data-goto]").forEach((btn) => btn.addEventListener("click", () => { step = Number(btn.dataset.goto); renderStep(); }));
-
-  if (step === 0) {
-    document.querySelectorAll("[data-type]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        draft.product.type = btn.dataset.type;
-        document.querySelectorAll("[data-type]").forEach((b) => b.classList.remove("is-selected"));
-        btn.classList.add("is-selected");
-      });
-    });
-    document.getElementById("btn-next").addEventListener("click", () => {
-      saveProductFields();
-      if (!isRequired(draft.product.name) || !isRequired(draft.product.serialNumber)) {
-        showToast("Please fill in the product name and serial number.", "error");
-        return;
-      }
-      step += 1; renderStep();
-    });
-  }
-
-  if (step === 1) {
-    document.getElementById("btn-next").addEventListener("click", () => {
-      saveDetailFields();
-      let ok = true;
-      clearErr("d-issue"); clearErr("d-incident-date");
-      if (!isRequired(draft.details.issueDescription)) { setErr("d-issue", "Please describe the issue."); ok = false; }
-      if (!isValidDate(draft.details.incidentDate)) { setErr("d-incident-date", "Enter a valid date."); ok = false; }
-      else if (!isNotFutureDate(draft.details.incidentDate)) { setErr("d-incident-date", "Date can't be in the future."); ok = false; }
-      if (!ok) return;
-      step += 1; renderStep();
-    });
-  }
-
-  if (step === 2) {
-    DOC_CATEGORIES.forEach((c) => {
-      const el = document.getElementById(`uploader-${c.key}`);
-      const controller = mountUploader(el, {
-        docType: c.label,
-        onChange: (docs) => { draft.documents[c.key] = docs; },
-      });
-      // Restore any previously uploaded docs when navigating back.
-      draft.documents[c.key] = draft.documents[c.key] || [];
-    });
-    document.getElementById("btn-next").addEventListener("click", () => { step += 1; renderStep(); });
-  }
-
-  if (step === 3) {
-    document.getElementById("btn-next").addEventListener("click", submitClaim);
-  }
-}
-
-function saveProductFields() {
-  draft.product.name = val("p-name");
-  draft.product.brand = val("p-brand");
-  draft.product.model = val("p-model");
-  draft.product.serialNumber = val("p-serial");
-  draft.product.purchaseDate = val("p-purchase-date");
-  draft.product.purchasePrice = val("p-price");
-  draft.product.retailer = val("p-retailer");
-  draft.product.warrantyProvider = val("p-warranty-provider");
-  draft.product.warrantyStart = val("p-warranty-start");
-  draft.product.warrantyExpiry = val("p-warranty-expiry");
-  draft.product.warrantyCoverage = val("p-warranty-coverage");
-  draft.product.warrantyExclusions = val("p-warranty-exclusions");
-}
-function saveDetailFields() {
-  draft.details.issueDescription = val("d-issue");
-  draft.details.incidentDate = val("d-incident-date");
-  draft.details.damageType = val("d-damage-type");
-  draft.details.notes = val("d-notes");
-  draft.details.repairHistory = val("d-repair-history");
-  draft.details.serviceCenter = val("d-service-center");
-  draft.details.replacedParts = val("d-replaced-parts");
-  draft.details.replacementDetails = val("d-replacement");
-}
 function val(id) { return document.getElementById(id)?.value?.trim() || ""; }
 function setErr(id, msg) { const f = document.getElementById(id).closest(".field"); f.classList.add("has-error"); f.querySelector(".field__error").textContent = msg; }
 function clearErr(id) { document.getElementById(id)?.closest(".field")?.classList.remove("has-error"); }
-
-function computeMissing() {
-  const missing = [];
-  if (!draft.product.name) missing.push("product name");
-  if (!draft.product.serialNumber) missing.push("serial number");
-  if (!draft.documents.receipt?.length) missing.push("purchase receipt");
-  if (!draft.documents.warranty?.length) missing.push("warranty document");
-  if (!draft.documents.photo?.length) missing.push("product photo");
-  return missing;
-}
-function computeReadiness() {
-  const checks = [
-    !!draft.product.name,
-    !!draft.product.serialNumber,
-    !!draft.details.issueDescription,
-    !!draft.documents.receipt?.length,
-    !!draft.documents.warranty?.length,
-    !!draft.documents.photo?.length,
-  ];
-  const done = checks.filter(Boolean).length;
-  return Math.round((done / checks.length) * 100);
-}
-
-async function submitClaim() {
-  step += 1;
-  renderStep(); // shows the "Claim submitted" panel
-  const timelineEl = document.getElementById("submit-timeline");
-  const stages = [
-    { label: "Claim received", delay: 500 },
-    { label: "Documents processed", delay: 900 },
-    { label: "Models analysing", delay: 1100 },
-    { label: "Decision engine reviewing", delay: 900 },
-    { label: "Decision available", delay: 700 },
-  ];
-
-  const claim = await claimService.createClaim({
-    product: draft.product,
-    faultType: draft.details.damageType || "Reported Fault",
-    description: draft.details.issueDescription,
-    incidentDate: draft.details.incidentDate,
-    warranty: { provider: draft.product.warrantyProvider, active: true, expiry: draft.product.warrantyExpiry },
-    repairHistory: { summary: draft.details.repairHistory, serviceCenter: draft.details.serviceCenter, replacedParts: draft.details.replacedParts },
-    replacementDetails: draft.details.replacementDetails,
-  });
-
-  for (let i = 0; i < stages.length; i += 1) {
-    renderTimelineProgress(timelineEl, stages, i);
-    // eslint-disable-next-line no-await-in-loop
-    await wait(stages[i].delay);
-  }
-  await claimService.submitClaim(claim.id);
-  showToast("Claim submitted successfully.", "success");
-  window.location.href = `/claim-details?id=${claim.id}`;
-}
-
-function renderTimelineProgress(el, stages, activeIndex) {
-  el.innerHTML = stages
-    .map((s, i) => {
-      const cls = i < activeIndex ? "is-complete" : i === activeIndex ? "is-current" : "";
-      return `<div class="timeline__item ${cls}"><div class="timeline__dot"></div><div class="timeline__title">${s.label}</div></div>`;
-    })
-    .join("");
-}

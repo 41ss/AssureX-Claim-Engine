@@ -2,55 +2,57 @@
  * api.js — the ONE place that knows how to reach the backend.
  *
  * Every other service imports `request()` from here instead of
- * calling fetch() directly. When the backend team hands over real
- * endpoints, only this file (and each service's endpoint paths)
- * should need to change — the pages and components stay the same.
- *
- * MOCK MODE
- * ---------
- * USE_MOCK_DATA = true  -> services resolve from local mock data
- * USE_MOCK_DATA = false -> services call API_BASE_URL over fetch()
- *
- * The UI behaves identically in both modes. Toggle this one flag
- * (or the `?live=1` query param, for quick demos) to switch.
+ * calling fetch() directly. The backend is the FastAPI app serving
+ * this page (src/main.py), so calls go to the same origin under /api
+ * and the login session travels in a signed cookie.
  */
 
-export const API_BASE_URL = "https://api.assurex.example.com"; // TODO: Replace with confirmed backend endpoint.
-
-const forcedLive = new URLSearchParams(window.location.search).get("live") === "1";
-export const USE_MOCK_DATA = !forcedLive;
-
-/** Simulated network latency so loading states are visible in mock mode. */
-const MOCK_LATENCY_MS = 450;
+export const API_BASE_URL = "/api";
 
 /**
- * request(path, options) — thin fetch wrapper for the real backend.
- * Only used when USE_MOCK_DATA is false.
+ * request(path, options) — fetch wrapper for the backend.
+ * Sends JSON unless the body is FormData (file uploads), and turns an
+ * error response into an Error carrying the server's plain-language message.
+ * A 401 (session expired) sends the user back to the login page.
  */
 export async function request(path, options = {}) {
+  const isForm = options.body instanceof FormData;
   const res = await fetch(`${API_BASE_URL}${path}`, {
-    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+    credentials: "same-origin",
     ...options,
+    headers: { ...(isForm ? {} : { "Content-Type": "application/json" }), ...(options.headers || {}) },
   });
 
   if (!res.ok) {
-    const error = new Error(`Request failed: ${res.status}`);
+    let message = `Request failed (${res.status}).`;
+    try {
+      const body = await res.json();
+      if (typeof body.detail === "string") message = body.detail;
+    } catch (err) {
+      // Non-JSON error body: keep the generic message.
+    }
+    if (res.status === 401 && !path.startsWith("/auth/")) {
+      localStorage.removeItem("assurex:session");
+      window.location.href = "/login";
+    }
+    const error = new Error(message);
     error.status = res.status;
     throw error;
   }
   return res.json();
 }
 
-/**
- * mockResolve(value) — wraps mock data in a Promise with a short
- * artificial delay, so callers can `await` mock and live services
- * identically.
- */
-export function mockResolve(value) {
-  return new Promise((resolve) => setTimeout(() => resolve(value), MOCK_LATENCY_MS));
-}
-
-/** mockReject(message) — simulate a failed backend call in mock mode. */
-export function mockReject(message = "Something went wrong while connecting to ASSUREX.") {
-  return new Promise((_, reject) => setTimeout(() => reject(new Error(message)), MOCK_LATENCY_MS));
+/** download(path, fallbackName) — fetch a file from the backend and save it. */
+export async function download(path, fallbackName) {
+  const res = await fetch(`${API_BASE_URL}${path}`, { credentials: "same-origin" });
+  if (!res.ok) throw new Error("We couldn't generate this file. Please try again.");
+  const disposition = res.headers.get("Content-Disposition") || "";
+  const match = disposition.match(/filename="?([^";]+)"?/);
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = match ? match[1] : fallbackName;
+  a.click();
+  URL.revokeObjectURL(url);
+  return true;
 }

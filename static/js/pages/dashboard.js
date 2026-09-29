@@ -13,6 +13,7 @@ import { multiSeriesAreaChart } from "../components/chart.js";
 import { skeletonCards, skeletonLines } from "../components/loadingState.js";
 import { errorState, friendlyError } from "../components/errorState.js";
 import { emptyState } from "../components/emptyState.js";
+import { escapeHtml } from "../utils/helpers.js";
 
 export async function renderDashboardPage(container, session) {
   container.innerHTML = `
@@ -27,6 +28,7 @@ export async function renderDashboardPage(container, session) {
     </div>
 
     <div class="stat-grid" id="stat-grid">${skeletonCards(4)}</div>
+    <div class="stat-grid stat-grid--five" id="warranty-grid"></div>
 
     <div class="dash-grid">
       <div class="card" id="chart-card">
@@ -64,7 +66,7 @@ export async function renderDashboardPage(container, session) {
 
       <div class="card" id="ai-analysis-card">
         <div class="card__header">
-          <div class="card__title">${icon("sparkles", { size: 16 })} AI Analysis</div>
+          <div class="card__title card__title--icon">${icon("sparkles", { size: 16 })}AI Analysis</div>
         </div>
         <div id="ai-analysis-body">${skeletonLines(2)}</div>
       </div>
@@ -118,6 +120,14 @@ async function loadStats() {
       statCard({ label: "Approved", value: stats.approved.value, deltaPct: stats.approved.deltaPct, direction: stats.approved.direction, iconName: "check-circle-2", tone: "approved" }),
       statCard({ label: "Rejected", value: stats.rejected.value, deltaPct: stats.rejected.deltaPct, direction: stats.rejected.direction, iconName: "x-circle", tone: "rejected" }),
       statCard({ label: "Under Review", value: stats.underReview.value, deltaPct: stats.underReview.deltaPct, direction: stats.underReview.direction, iconName: "clock-3", tone: "review" }),
+    ].join("");
+    // Products, warranties, receipts and pending actions (SRS xl).
+    document.getElementById("warranty-grid").innerHTML = [
+      statCard({ label: "Registered Products", value: stats.products, iconName: "package", tone: "forest" }),
+      statCard({ label: "Active Warranties", value: stats.activeWarranties, iconName: "shield-check", tone: "approved" }),
+      statCard({ label: "Expiring Soon", value: stats.expiringWarranties, iconName: "alert-triangle", tone: "review" }),
+      statCard({ label: "Saved Receipts", value: stats.savedReceipts, iconName: "receipt", tone: "forest" }),
+      statCard({ label: "Pending Actions", value: stats.pendingActions, iconName: "clock-3", tone: "rejected" }),
     ].join("");
   } catch (err) {
     slot.innerHTML = `<div class="card">${errorState({ body: friendlyError(err), onRetry: loadStats })}</div>`;
@@ -182,13 +192,15 @@ async function loadAiAnalysis() {
     slot.innerHTML = `
       <div style="display:flex;align-items:center;gap:var(--space-4)">
         <div class="text-display" style="font-size:var(--fs-2xl)">${pct}%</div>
-        <div class="text-xs text-muted">Average confidence score across both models this week.</div>
+        <div class="text-xs text-muted">Average Python-model confidence across evaluated claims.</div>
       </div>
       <div class="ai-analysis__list">
-        <div class="check-item is-done">${icon("check-circle-2", { size: 16 })}Fraudulent claims</div>
-        <div class="check-item is-done">${icon("check-circle-2", { size: 16 })}Policy violations</div>
-        <div class="check-item is-done">${icon("check-circle-2", { size: 16 })}Document inconsistencies</div>
-        <div class="check-item is-done">${icon("check-circle-2", { size: 16 })}Warranty exclusions</div>
+        ${[["duplicates", "Possible duplicate claims"], ["ruleViolations", "Claims with a failed warranty rule"],
+           ["contradictions", "Claims with contradictions"], ["exclusions", "Claims hitting a warranty exclusion"]]
+          .map(([key, label]) => {
+            const n = stats.flags?.[key] || 0;
+            return `<div class="check-item ${n ? "is-pending" : "is-done"}">${icon(n ? "alert-triangle" : "check-circle-2", { size: 16 })}${label}: ${n}</div>`;
+          }).join("")}
       </div>`;
   } catch (err) {
     slot.innerHTML = errorState({ body: friendlyError(err), onRetry: loadAiAnalysis });
@@ -198,23 +210,25 @@ async function loadAiAnalysis() {
 async function loadReadiness() {
   const slot = document.getElementById("readiness-body");
   try {
+    // Drafts and claims waiting for more information are the ones still being prepared.
     const claims = await claimService.getClaims({});
-    const draftOrReview = claims.find((c) => c.status === "review") || claims[0];
-    if (!draftOrReview) {
-      slot.innerHTML = emptyState({ title: "Nothing to prepare", body: "Start a new claim to see readiness checks here.", actionLabel: "New Claim", actionHref: "/new-claim" });
+    const open = claims.find((c) => c.status === "draft" || c.status === "info");
+    if (!open) {
+      slot.innerHTML = emptyState({ title: "Nothing to prepare", body: "Drafts and claims that need more information show up here.", actionLabel: "New Claim", actionHref: "/new-claim" });
       return;
     }
-    const pct = Math.round((draftOrReview.readiness || 0.8) * 100);
+    const prep = await claimService.getPreparation(open.id);
+    const pct = Math.round((prep.readiness || 0) * 100);
+    const gaps = [...(prep.missingFields || []), ...(prep.missingDocuments || [])];
     slot.innerHTML = `
       <div class="readiness">
         <div style="flex:1;min-width:200px">
-          <div class="check-item is-done">${icon("check-circle-2", { size: 16 })}Product details</div>
-          <div class="check-item is-done">${icon("check-circle-2", { size: 16 })}Purchase receipt</div>
-          <div class="check-item ${draftOrReview.decision.missingDocuments.length ? "is-pending" : "is-done"}">
-            ${icon(draftOrReview.decision.missingDocuments.length ? "x-circle" : "check-circle-2", { size: 16 })}
-            ${draftOrReview.decision.missingDocuments[0] || "All documents provided"}
-          </div>
-          <a class="btn btn-secondary btn-sm" style="margin-top:var(--space-3)" href="/claim-details?id=${draftOrReview.id}">View Claim ${icon("chevron-right", { size: 14 })}</a>
+          <div class="text-sm" style="margin-bottom:var(--space-2)"><strong>${open.id}</strong> · ${escapeHtml(open.product.name)}</div>
+          ${gaps.length
+            ? gaps.slice(0, 4).map((g) => `<div class="check-item is-pending">${icon("x-circle", { size: 16 })}${escapeHtml(g)}</div>`).join("")
+            : `<div class="check-item is-done">${icon("check-circle-2", { size: 16 })}Everything required is provided</div>`}
+          ${(prep.deadlines || []).slice(0, 1).map((d) => `<div class="check-item is-pending">${icon("clock-3", { size: 16 })}${escapeHtml(d)}</div>`).join("")}
+          <a class="btn btn-secondary btn-sm" style="margin-top:var(--space-3)" href="/claim-details?id=${open.id}">Continue claim ${icon("chevron-right", { size: 14 })}</a>
         </div>
         <div style="text-align:center">
           <svg width="0" height="0"></svg>
@@ -253,8 +267,8 @@ async function loadActivity() {
         <div class="recent-claim">
           <div class="icon-tile">${icon("bell", { size: 16 })}</div>
           <div class="recent-claim__body">
-            <div class="recent-claim__title">${n.title}</div>
-            <div class="recent-claim__sub">${n.body}</div>
+            <div class="recent-claim__title">${escapeHtml(n.title)}</div>
+            <div class="recent-claim__sub">${escapeHtml(n.body)}</div>
           </div>
         </div>`
           )
