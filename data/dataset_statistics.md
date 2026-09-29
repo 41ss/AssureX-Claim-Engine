@@ -14,52 +14,52 @@ test: 225
 
 ```
 label
-Invalid Claim    352
-Valid Claim      350
-Manual Review    348
+Manual Review    352
+Invalid Claim    350
+Valid Claim      348
 ```
 
 ## Label distribution — val
 
 ```
 label
-Valid Claim      76
-Manual Review    75
-Invalid Claim    74
+Manual Review    82
+Invalid Claim    72
+Valid Claim      71
 ```
 
 ## Label distribution — test
 
 ```
 label
-Valid Claim      76
-Manual Review    75
-Invalid Claim    74
+Valid Claim      79
+Invalid Claim    75
+Manual Review    71
 ```
 
 ## Scenario distribution (train)
 
 ```
 scenario
-normal_valid                 125
-excluded_damage              122
+excessive_repairs            121
 valid_near_expiry            119
-expired_warranty             117
-excessive_repairs            111
-valid_with_repair_history    106
-contradiction_bad_dates       91
-missing_documents             90
-borderline_disagreement       85
-serial_mismatch               84
+normal_valid                 118
+expired_warranty             115
+excluded_damage              114
+valid_with_repair_history    113
+serial_mismatch               96
+missing_documents             88
+borderline_disagreement       87
+contradiction_bad_dates       79
 ```
 
 ## Product category distribution (train)
 
 ```
 product_category
-small_appliances        379
-consumer_electronics    342
-mobile_devices          329
+small_appliances        377
+mobile_devices          366
+consumer_electronics    307
 ```
 
 ## Numeric feature summary (train)
@@ -67,13 +67,13 @@ mobile_devices          329
 ```
        product_age_days  warranty_months  warranty_days_left  days_purchase_to_fault  previous_repairs  missing_documents
 count           1050.00          1050.00             1050.00                 1050.00           1050.00            1050.00
-mean             325.78            16.33              164.17                  234.16              0.86               0.14
-std              212.74             5.77              183.26                  234.25              1.46               0.48
-min               10.00            12.00             -133.00                  -15.00              0.00               0.00
-25%              157.00            12.00               10.00                   47.00              0.00               0.00
-50%              297.00            12.00              123.00                  142.00              0.00               0.00
-75%              422.00            24.00              277.75                  357.00              1.00               0.00
-max              846.00            24.00              710.00                  839.00              6.00               3.00
+mean             334.26            16.31              154.99                  237.50              0.93               0.14
+std              210.64             5.76              176.73                  230.65              1.56               0.50
+min               13.00            12.00             -133.00                  -15.00              0.00               0.00
+25%              168.25            12.00               10.00                   53.00              0.00               0.00
+50%              303.00            12.00              124.00                  155.00              0.00               0.00
+75%              435.75            24.00              254.50                  358.00              2.00               0.00
+max              844.00            24.00              706.00                  836.00              6.00               3.00
 ```
 
 ## Claim ID uniqueness

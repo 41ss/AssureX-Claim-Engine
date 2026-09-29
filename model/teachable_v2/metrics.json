@@ -1,0 +1,95 @@
+{
+  "version": "v2",
+  "val": {
+    "accuracy": 0.9556,
+    "ms_per_card": 183,
+    "classes": [
+      "Valid Claim",
+      "Invalid Claim",
+      "Manual Review"
+    ],
+    "confusion_matrix": [
+      [
+        70,
+        1,
+        0
+      ],
+      [
+        2,
+        70,
+        0
+      ],
+      [
+        4,
+        3,
+        75
+      ]
+    ],
+    "per_class": {
+      "Valid Claim": {
+        "precision": 0.9211,
+        "recall": 0.9859,
+        "f1": 0.9524,
+        "support": 71
+      },
+      "Invalid Claim": {
+        "precision": 0.9459,
+        "recall": 0.9722,
+        "f1": 0.9589,
+        "support": 72
+      },
+      "Manual Review": {
+        "precision": 1.0,
+        "recall": 0.9146,
+        "f1": 0.9554,
+        "support": 82
+      }
+    }
+  },
+  "test": {
+    "accuracy": 0.9511,
+    "ms_per_card": 153,
+    "classes": [
+      "Valid Claim",
+      "Invalid Claim",
+      "Manual Review"
+    ],
+    "confusion_matrix": [
+      [
+        72,
+        5,
+        2
+      ],
+      [
+        1,
+        71,
+        3
+      ],
+      [
+        0,
+        0,
+        71
+      ]
+    ],
+    "per_class": {
+      "Valid Claim": {
+        "precision": 0.9863,
+        "recall": 0.9114,
+        "f1": 0.9474,
+        "support": 79
+      },
+      "Invalid Claim": {
+        "precision": 0.9342,
+        "recall": 0.9467,
+        "f1": 0.9404,
+        "support": 75
+      },
+      "Manual Review": {
+        "precision": 0.9342,
+        "recall": 1.0,
+        "f1": 0.966,
+        "support": 71
+      }
+    }
+  }
+}

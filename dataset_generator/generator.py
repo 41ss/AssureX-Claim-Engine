@@ -19,6 +19,12 @@ CLAIMS_PER_CLASS = 500
 SEED = 42
 LABEL_NOISE_RATE = 0.04   # fraction of claims per split whose label gets flipped
 
+# How often each optional document is attached, in every class. A repair report only
+# exists when the product was repaired before. (v1 of the dataset attached every optional
+# document to almost every claim, so the model learned "no repair report = manual review".)
+OPTIONAL_DOC_RATES = {"warranty_card": 0.75, "product_image": 0.7, "diagnostic_report": 0.3, "fault_video": 0.35}
+REPAIR_REPORT_RATE_IF_REPAIRED = 0.85
+
 POLICIES = {p.stem: yaml.safe_load(p.read_text()) for p in POLICIES_DIR.glob("*.yaml")}
 CATEGORIES = list(POLICIES.keys())
 
@@ -35,6 +41,18 @@ FIELDNAMES = [
     "warranty_card_present", "product_image_present", "repair_report_present",
     "serial_matches", "missing_documents", "scenario", "label",
 ]
+
+
+def choose_optional_docs(optional, previous_repairs, rng):
+    """Which optional documents a customer attached, drawn at realistic rates."""
+    chosen = set()
+    for doc in optional:
+        if doc == "repair_report":
+            if previous_repairs > 0 and rng.random() < REPAIR_REPORT_RATE_IF_REPAIRED:
+                chosen.add(doc)
+        elif rng.random() < OPTIONAL_DOC_RATES.get(doc, 0.5):
+            chosen.add(doc)
+    return chosen
 
 
 def doc_flags(present_docs, mandatory_docs):
@@ -58,7 +76,7 @@ def generate_claim(claim_id, label, scenario, category, rng):
     excluded = policy["exclusions"]
     max_repairs = policy["repair_conditions"]["max_covered_repairs"]
 
-    present_docs = set(mandatory) | set(optional)   # scenarios remove from this
+    removed_docs = set()      # documents a scenario takes away
     physical_damage = water_damage = False
     serial_matches = True
     product_replaced_before = False
@@ -105,7 +123,7 @@ def generate_claim(claim_id, label, scenario, category, rng):
         days_purchase_to_fault = rng.randint(1, product_age_days)
         fault_category = rng.choice(covered_faults)
         drop_count = rng.randint(1, max(1, len(mandatory) - 1))
-        present_docs -= set(rng.sample(mandatory, drop_count))
+        removed_docs |= set(rng.sample(mandatory, drop_count))
 
     elif scenario == "serial_mismatch":
         product_age_days = rng.randint(10, warranty_days - 30)
@@ -123,12 +141,12 @@ def generate_claim(claim_id, label, scenario, category, rng):
         days_purchase_to_fault = rng.randint(max(1, product_age_days - 5), max(product_age_days, 1))
         fault_category = rng.choice(covered_faults)
         previous_repairs = max_repairs
-        if optional:
-            present_docs -= set(rng.sample(optional, 1))
+        removed_docs.add("warranty_card")
 
     else:
         raise ValueError(f"unknown scenario: {scenario}")
 
+    present_docs = (set(mandatory) | choose_optional_docs(optional, previous_repairs, rng)) - removed_docs
     warranty_days_left = warranty_days - product_age_days
     row = {
         "claim_code": f"CLM-{claim_id:05d}",

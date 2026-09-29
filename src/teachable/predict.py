@@ -1,6 +1,6 @@
 """Google Teachable Machine classification of a Claim Summary Card (SRS xxi).
 
-The model is the Keras export from Teachable Machine, placed in model/teachable_v1/
+The model is the Keras export from Teachable Machine, placed in model/teachable_<version>/
 (keras_model.h5 + labels.txt). It runs independently of the Python model: its only input
 is the card image.
 """
@@ -9,10 +9,10 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-from src.core.config import CLAIM_CLASSES, MODEL_DIR
+from src.core.config import CLAIM_CLASSES, MODEL_DIR, TEACHABLE_MODEL_VERSION
 from src.core.contracts import ModelPrediction
 
-MODEL_VERSION = "v1"
+MODEL_VERSION = TEACHABLE_MODEL_VERSION
 TM_MODEL_DIR = MODEL_DIR / f"teachable_{MODEL_VERSION}"
 INPUT_SIZE = 224          # Teachable Machine image models take 224x224 RGB
 
@@ -54,6 +54,7 @@ def get_model():
         import tf_keras
         _MODEL = tf_keras.models.load_model(model_file, compile=False)
         _LABELS = read_labels(labels_file)
+        _MODEL.predict(np.zeros((1, INPUT_SIZE, INPUT_SIZE, 3), dtype=np.float32), verbose=0)   # warm-up run
     return _MODEL, _LABELS
 
 

@@ -1,11 +1,10 @@
-from pathlib import Path
 import joblib
 import pandas as pd
 
-from src.core.config import MODEL_DIR
+from src.core.config import MODEL_DIR, PYTHON_MODEL_VERSION
 from src.core.contracts import ClaimFeatures, ModelPrediction
 
-MODEL_PATH = MODEL_DIR / "python_v1.joblib"
+MODEL_PATH = MODEL_DIR / f"python_{PYTHON_MODEL_VERSION}.joblib"
 _PIPELINE = None
 
 
@@ -55,7 +54,7 @@ def predict(features: ClaimFeatures) -> ModelPrediction:
 
     return ModelPrediction(
         model_name="python",
-        model_version="v1",
+        model_version=PYTHON_MODEL_VERSION,
         label=best_label,
         probabilities=prob_dict,
     )
