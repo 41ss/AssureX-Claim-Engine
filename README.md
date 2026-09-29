@@ -14,7 +14,7 @@ TechWiz 7 · NextWave AI and ML · Theme: AI-Powered Document Ops.
 | Item | Link |
 |---|---|
 | Deployed application | [TO ADD — or "local installation only", see below] |
-| Demonstration video | [TO ADD] |
+| Demonstration video | [Watch the Demo Video Here] https://drive.google.com/file/d/1H-8sTuHlAUqZRQk9486MlBNoYmXJq1ut/view?usp=sharing |
 | Technical blog | [TO ADD] |
 | Project report | `documentation/AssureX_Project_Report.docx` [TO ADD: final PDF link] |
 | Teachable Machine project | https://drive.google.com/file/d/1ruZkYKbzm37YkyMXrzRzUZW-X4I73XdM/view?usp=sharing |
